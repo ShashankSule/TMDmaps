@@ -1,11 +1,11 @@
 # base modules 
-
+import sys
 import os
 import copy
 
 # make sure we're in the right directory 
 
-os.chdir('/home/ssule25/Documents/Shashank')
+# os.chdir('/home/ssule25/Documents/Shashank')
 
 
 # Regular Modules
@@ -39,55 +39,64 @@ import diffusion_map as dmap
 # uniform -- pts, interpolant
 # boltzmann - samples, 
 
-dataset = 'FEM20_data30'
-fname = f"Muller_Data_{dataset}.npz"
+dataset = sys.argv[1]
+print(dataset)
+# dataset = 'FEM20_data30'
+# fname = f"Muller_Data_{dataset}.npz"
 
-# # Load metadynamics 
-# inData = scipy.io.loadmat("Muller_Data_Metadynamics_20.mat") # to load metadynamics data, use "Muller_Data_FEM20_data20_Metadynamics.mat"
-# data = inData['samples']
-# data = data.T
-# inData = scipy.io.loadmat("Muller_Data_FEM20_data20_metadynamics.mat")
-# qFEM = inData['interpolant'].flatten()
-# data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
-# qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+if dataset == 'metadynamics':
+  # Load metadynamics 
+  inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Muller_Data_Metadynamics_20.mat") # to load metadynamics data, use "Muller_Data_FEM20_data20_Metadynamics.mat"
+  data = inData['samples']
+  data = data.T
+  inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Muller_Data_FEM20_data20_metadynamics.mat")
+  qFEM = inData['interpolant'].flatten()
+  data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+  qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+elif dataset == 'uniform':
+  # Load uniform 
+  inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Muller_Data_Uniform.mat") # to load metadynamics data, use "Muller_Data_FEM20_data20_Metadynamics.mat"
+  data = inData['pts']
+  data = data.T
+  inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Muller_Data_FEM20_uniform.mat")
+  qFEM = inData['interpolant'].flatten()
+  N = data.shape[1]
+  outliers = np.zeros(N)
+  for n in range(N):
+      if model_systems.muller_potential(data[:, n]) > 70:
+          outliers[n] = True
+  # Define what points to keep and not for equivalence between metad and gibbs
+  # datasets
+  outliers = np.logical_not(outliers)
+  data = data[:,outliers]
+  qFEM = qFEM[outliers]
+  data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+  qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+else: 
+  # Load Boltzmann trajectory @ 20
+  datavar = 'FEM20_data20'
+  fname = f"Muller_Data_{datavar}.npz"
+  inData = np.load(fname)
+  data = inData['traj']
+  qFEM = inData['fem_committor']
+  data = data.T
+  data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+  qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
 
+N = data.shape[1]
 
-# # Load uniform 
-# inData = scipy.io.loadmat("Muller_Data_Uniform.mat") # to load metadynamics data, use "Muller_Data_FEM20_data20_Metadynamics.mat"
-# data = inData['pts']
-# data = data.T
-# inData = scipy.io.loadmat("Muller_Data_FEM20_uniform.mat")
-# qFEM = inData['interpolant'].flatten()
-# data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
-# qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
-
-
-# # Load boltzmann trajectory: for uniform data use value 'pts' 
-# inData = scipy.io.loadmat("Muller_trajectory_beta_inv_30.mat") # to load metadynamics data, use "Muller_Data_FEM20_data20_Metadynamics.mat"
-# data = inData['traj']
-# data = data.T
-
-# # FEM Committor Data
-# inData = scipy.io.loadmat("Muller_Data_FEM20_T_30.mat")
-# qFEM = inData['interpolant'].flatten()
-# data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
-# qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
-
-# Load Boltzmann trajectory @ 20
-dataset = 'FEM20_data20'
-fname = f"Muller_Data_{dataset}.npz"
-inData = np.load(fname)
-data = inData['traj']
-qFEM = inData['fem_committor']
-data = data.T
+# FEM Committor Data
+inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Muller_Data_FEM20_T_30.mat")
+qFEM = inData['interpolant'].flatten()
 data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
 qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
 
-N = data.shape[1]
 # prepare parameters
 
-
-eps_vals = 2.0**np.arange(-10, 4, 0.5)
+if dataset == 'uniform':
+  eps_vals = 2.0**np.arange(-18, 4, 0.5)
+else:
+  eps_vals = 2.0**np.arange(-10, 4, 0.5)
 delta_vals = np.linspace(1e-6, 1e-1, 10)
 knn_vals = 2**np.arange(10,6,-5)
 vbdry_vals = np.arange(10, -50, -60)
@@ -176,7 +185,7 @@ def onepass(t):
     rev_interpolant_refined = np.delete(rev_interpolant, np.where(np.isnan(rev_interpolant)))
     fem_interpolant_refined = np.delete(fem_committor_vbdry, np.where(np.isnan(rev_interpolant)))
     error_data_FEM_TMD[i,j,k,l] = helpers.RMSerror(rev_interpolant_refined, fem_interpolant_refined)
-    print("Done!")
+    print("Errors are: ", (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l]))
   return (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l])
 
 # parallelize and compute 
@@ -191,7 +200,15 @@ iters = itertools.product(range(num_idx), range(num_delta), range(num_knn), rang
 # except BaseException as e:
 #     print("error: ", e)
 for i in iters:
-  onepass(i)
-np.save('Error_data_Boltzmann_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
-np.save('Error_data_Boltzmann_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
+  try:
+    onepass(i)
+  except BaseException as e: 
+    print("Exception: ", e)
+    if e == KeyboardInterrupt:
+      break
+    else:
+      continue
+
+np.save('Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
+np.save('Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
 # onepass((0,4,0,0))

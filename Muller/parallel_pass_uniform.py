@@ -5,7 +5,7 @@ import copy
 
 # make sure we're in the right directory 
 
-os.chdir('/home/ssule25/Documents/TMDmaps')
+# os.chdir('/home/ssule25/Documents/TMDmaps')
 
 
 # Regular Modules
