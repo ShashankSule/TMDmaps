@@ -42,7 +42,7 @@ fem_grid = inData['pts']
 if dataset == 'metadynamics': 
         # Load gibbs density data
         inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_data_metadynamics_longsample_beta_0.66.mat")
-        data = inData['traj']
+        data = inData['samples']
         data = data.T
         N = data.shape[1]
 elif dataset == 'uniform':
