@@ -51,7 +51,7 @@ elif dataset == 'uniform':
         N = data.shape[0]
 else: 
         # Load gibbs density data
-        inData = scipy.io.loadmat("Twowell_trajectory_1.5.mat")
+        inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_trajectory_1.5.mat")
         data = inData['traj']
         data = data.T
         N = data.shape[0]
@@ -82,7 +82,7 @@ def onepass(t):
         N = np.size(ϵ_net) # number of points in net
         if n_neigh > N:
                 n_neigh = N-2
-        print("Computing for parameters: ", eps, delta, n_neigh, vbdry, end = "...")
+        print("Computing for parameters: ", eps, delta, n_neigh, vbdry, end = "...\n")
         err_boolz = helpers.throwing_pts_twowell(data, vbdry) # set up error points based on vbdry 
         error_bool = err_boolz['error_bool']
         A_bool = err_boolz['A_bool']
