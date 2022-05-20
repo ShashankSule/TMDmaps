@@ -44,17 +44,17 @@ if dataset == 'metadynamics':
         inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_data_metadynamics_longsample_beta_0.66.mat")
         data = inData['traj']
         data = data.T
-        N = data.shape[0]
+        N = data.shape[1]
 elif dataset == 'uniform':
         # Load uniform density data
         data = fem_grid.T 
-        N = data.shape[0]
+        N = data.shape[1]
 else: 
         # Load gibbs density data
         inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_trajectory_1.5.mat")
         data = inData['traj']
         data = data.T
-        N = data.shape[0]
+        N = data.shape[1]
 
 # get eps range 
 eps_vals = 2.0**np.arange(-18, 4, 0.5)
