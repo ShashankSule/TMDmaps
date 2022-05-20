@@ -3,10 +3,10 @@
 
 import os
 import copy
-
+import sys 
 # os.chdir('/content/drive/MyDrive/Colab Notebooks/Shashank')
 
-os.chdir('/Users/shashanksule/Documents/TMDmaps')
+# os.chdir('/Users/shashanksule/Documents/TMDmaps')
 # Regular Modules
 import numpy as np
 import sklearn as sklearn
@@ -31,16 +31,30 @@ import helpers as helpers
 import model_systems as model_systems
 import diffusion_map as dmap
 
+dataset = sys.argv[1]
+print(dataset)
+
 # Load FEM solution 
 inData = scipy.io.loadmat("DistmeshTwowell_1.mat")
 fem_committor = inData['committor']
 fem_grid = inData['pts']
 
-# Load gibbs density data
-inData = scipy.io.loadmat("Twowell_trajectory_1.5.mat")
-data = inData['traj']
-data = data.T
-N = data.shape[0]
+if dataset == 'metadynamics': 
+        # Load gibbs density data
+        inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_data_metadynamics_longsample_beta_0.66.mat")
+        data = inData['traj']
+        data = data.T
+        N = data.shape[0]
+elif dataset == 'uniform':
+        # Load uniform density data
+        data = fem_grid.T 
+        N = data.shape[0]
+else: 
+        # Load gibbs density data
+        inData = scipy.io.loadmat("Twowell_trajectory_1.5.mat")
+        data = inData['traj']
+        data = data.T
+        N = data.shape[0]
 
 # get eps range 
 eps_vals = 2.0**np.arange(-18, 4, 0.5)
@@ -52,6 +66,10 @@ num_delta = delta_vals.shape[0]
 num_knn = knn_vals.shape[0]
 num_vbdry = vbdry_vals.shape[0]
 error_data_FEM_TMD = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
+
+# use this for computing kernel sums 
+kernel_data = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
+flag = True 
 
 def onepass(t):
         # define a pass
@@ -95,6 +113,10 @@ def onepass(t):
         target_dmap.construct_generator(data_current)
         K = target_dmap.get_kernel()
         L = target_dmap.get_generator()
+        # use this bit of code to compute kernel sum value 
+        if flag: 
+                return scipy.sparse.csr_matrix.mean(K)
+        
         try:
                 q = target_dmap.construct_committor(L, B_bool_current, C_bool_current);
         except BaseException as e: 
@@ -130,9 +152,10 @@ iters = itertools.product(range(num_idx), range(num_delta), range(num_knn), rang
 #     print("error: ", e)
 for i in iters:
   try:
-    onepass(i)
+    kernel_data[i] = onepass(i)
   except BaseException as e: 
     print("Exception: ", e)
     continue
 
-np.save('Error_data_gibbs_beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
+# np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
+np.save(os.getcwd() + '/error_data/kernel_data_' + dataset + '.npy', kernel_data)

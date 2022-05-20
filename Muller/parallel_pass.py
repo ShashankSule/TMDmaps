@@ -76,7 +76,7 @@ else:
   # Load Boltzmann trajectory @ 20
   datavar = 'FEM20_data20'
   fname = f"Muller_Data_{datavar}.npz"
-  inData = np.load(fname)
+  inData = np.load(os.getcwd() + "/ground_data/"+fname)
   data = inData['traj']
   qFEM = inData['fem_committor']
   data = data.T
@@ -111,6 +111,10 @@ fem_grid = fem_Data['pts']
 fem_committor = fem_Data['committor']
 print(num_idx, num_delta, num_knn, num_vbdry)
 
+# use this for computing kernel sums 
+kernel_data = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
+flag = True 
+
 # define one process 
 
 def onepass(t):
@@ -123,7 +127,7 @@ def onepass(t):
   N = np.size(ϵ_net) # number of points in net
   if n_neigh > N:
     n_neigh = N-2
-  print("Computing for parameters: ", eps, delta, n_neigh, delta, end = "...")
+  print("Computing for parameters: ", eps, delta, n_neigh, delta, end = "...\n")
   err_boolz = helpers.throwing_pts_muller(data, vbdry) # set up error points based on vbdry 
   error_bool = err_boolz['error_bool']
   A_bool = err_boolz['A_bool']
@@ -163,6 +167,12 @@ def onepass(t):
   target_dmap.construct_generator(data_current)
   K = target_dmap.get_kernel()
   L = target_dmap.get_generator()
+
+  # use this bit of code to compute kernel sum value 
+  if flag: 
+          distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
+          return (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances))/scipy.sparse.csr_matrix.mean(K)
+  
   try:
     q = target_dmap.construct_committor(L, B_bool_current, C_bool_current);
   except BaseException as e: 
@@ -201,14 +211,14 @@ iters = itertools.product(range(num_idx), range(num_delta), range(num_knn), rang
 #     print("error: ", e)
 for i in iters:
   try:
-    onepass(i)
+    kernel_data[i] = onepass(i)
   except BaseException as e: 
     print("Exception: ", e)
     if e == KeyboardInterrupt:
       break
     else:
       continue
-
-np.save('Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
-np.save('Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
+np.save(os.getcwd()+'/error_data/K_vals_'+dataset+'.npy', kernel_data)
+# np.save('Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
+# np.save('Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
 # onepass((0,4,0,0))
