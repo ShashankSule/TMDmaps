@@ -44,18 +44,6 @@ if dataset == 'metadynamics':
         inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_data_metadynamics_longsample_beta_0.66.mat")
         data = inData['samples']
         data = data.T
-<<<<<<< Updated upstream
-        N = data.shape[1]
-elif dataset == 'uniform':
-        # Load uniform density data
-        data = fem_grid.T 
-        N = data.shape[1]
-else: 
-        # Load gibbs density data
-        inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_trajectory_1.5.mat")
-        data = inData['traj']
-        data = data.T
-=======
         inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Twowell_FEM_1_metadynamics_longsample_0.66.mat")
         qFEM = inData['interpolant'].flatten()
         data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
@@ -79,7 +67,6 @@ else:
         qFEM = inData['interpolant'].flatten()
         data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
         qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan
->>>>>>> Stashed changes
         N = data.shape[1]
 
 # get eps range 
@@ -194,11 +181,6 @@ for i in iters:
     print("Exception: ", e)
     continue
 
-<<<<<<< Updated upstream
-# np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
-np.save(os.getcwd() + '/error_data/kernel_data_' + dataset + '.npy', kernel_data)
-=======
 np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_TMDpts_twowell.npy', error_data_TMD_FEM)
 np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
 np.save(os.getcwd() + '/error_data/kernel_data_' + dataset + '.npy', kernel_data)
->>>>>>> Stashed changes
