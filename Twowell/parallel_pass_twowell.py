@@ -44,6 +44,7 @@ if dataset == 'metadynamics':
         inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_data_metadynamics_longsample_beta_0.66.mat")
         data = inData['samples']
         data = data.T
+<<<<<<< Updated upstream
         N = data.shape[1]
 elif dataset == 'uniform':
         # Load uniform density data
@@ -54,17 +55,44 @@ else:
         inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_trajectory_1.5.mat")
         data = inData['traj']
         data = data.T
+=======
+        inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Twowell_FEM_1_metadynamics_longsample_0.66.mat")
+        qFEM = inData['interpolant'].flatten()
+        data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+        qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+        N = data.shape[1]
+elif dataset == 'uniform':
+        inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_uniform.mat") # Load uniform density data
+        data = inData['pts']
+        data = data.T
+        inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_FEM_1_uniform.mat")
+        qFEM = inData['interpolant'].flatten()
+        data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+        qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+        N = data.shape[1]
+else: 
+        # Load gibbs density data
+        inData = scipy.io.loadmat("/ground_data/Twowell_trajectory_1.5.mat")
+        data = inData['traj']
+        data = data.T
+        inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_FEM_1_gibbs_0.66.mat")
+        qFEM = inData['interpolant'].flatten()
+        data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+        qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan
+>>>>>>> Stashed changes
         N = data.shape[1]
 
 # get eps range 
 eps_vals = 2.0**np.arange(-18, 4, 0.5)
 delta_vals = np.linspace(1e-6, 1e-1, 10)[:4]
-knn_vals = 2**np.arange(10,6,-5)
+# knn_vals = 2**np.arange(10,6,-5)
+knn_vals = np.array([np.int64(N*0.1)])
 vbdry_vals = np.arange(1, -50, -60)
 num_idx = eps_vals.shape[0]
 num_delta = delta_vals.shape[0]
 num_knn = knn_vals.shape[0]
 num_vbdry = vbdry_vals.shape[0]
+error_data_TMD_FEM = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
 error_data_FEM_TMD = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
 
 # use this for computing kernel sums 
@@ -93,6 +121,8 @@ def onepass(t):
         B_bool_current = B_bool[ϵ_net]
         C_bool_current = C_bool[ϵ_net]
         error_bool_current = error_bool[ϵ_net]
+        q_FEM_current = qFEM[ϵ_net]
+
         # Compute target measure 
         def V(x): return model_systems.twowell_potential(x)
         target_measure = np.zeros(N)
@@ -113,33 +143,40 @@ def onepass(t):
         target_dmap.construct_generator(data_current)
         K = target_dmap.get_kernel()
         L = target_dmap.get_generator()
-        # use this bit of code to compute kernel sum value 
-        if flag: 
-                return scipy.sparse.csr_matrix.mean(K)
-        
+
         try:
                 q = target_dmap.construct_committor(L, B_bool_current, C_bool_current);
         except BaseException as e: 
                 print(e)
-                error_data_FEM_TMD[i,j,k,l] = 1e10
+                error_data_TMD_FEM[i,j,k,l] = nan
+                error_data_FEM_TMD[i,j,k,l] = nan
         else:
-                q = target_dmap.construct_committor(L, B_bool_current, C_bool_current)
+
+                # compute tmd-fem error
+                qFEM_restr = q_FEM_current[error_bool_current]
+                q_restr = q[error_bool_current]
+                error_data_TMD_FEM[i,j,k,l] = helpers.RMSerror(q_restr,qFEM_restr) # compute TMD-FEM error
+
+                # compute fem-tmd error
                 fem_error_bool = helpers.throwing_pts_twowell(fem_grid.T, vbdry)['error_bool']
                 fem_committor_vbdry = fem_committor[fem_error_bool] # comment this out if you don't want error data over thrown points
                 rev_interpolant = scipy.interpolate.griddata(data_current.T, q, fem_grid, method='linear')[fem_error_bool]
                 rev_interpolant_refined = np.delete(rev_interpolant, np.where(np.isnan(rev_interpolant)))
                 fem_interpolant_refined = np.delete(fem_committor_vbdry, np.where(np.isnan(rev_interpolant)))
-                if sum(fem_error_bool) < N*0.06:
-                        error_data_FEM_TMD[i,j,k,l] = 1e10
+                if max(rev_interpolant_refined.shape) < N*0.06:
+                        error_data_FEM_TMD[i,j,k,l] = nan 
                 else:
                         try:
                                 error_data_FEM_TMD[i,j,k,l] = helpers.RMSerror(rev_interpolant_refined, fem_interpolant_refined)
                         except:
-                                error_data_FEM_TMD[i,j,k,l] = 1e10 
-                        else:
-                                error_data_FEM_TMD[i,j,k,l] = helpers.RMSerror(rev_interpolant_refined, fem_interpolant_refined)
-                print(error_data_FEM_TMD[i,j,k,l])
+                                error_data_FEM_TMD[i,j,k,l] = nan 
 
+                print(error_data_FEM_TMD[i,j,k,l], error_data_TMD_FEM[i,j,k,l])
+
+        # compute k curve values 
+        if flag: 
+            distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
+            return (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances))/scipy.sparse.csr_matrix.mean(K)
 # parallelize and compute 
 print("Data checks out. Computing now...")
 iters = itertools.product(range(num_idx), range(num_delta), range(num_knn), range(num_vbdry))
@@ -157,5 +194,11 @@ for i in iters:
     print("Exception: ", e)
     continue
 
+<<<<<<< Updated upstream
 # np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
 np.save(os.getcwd() + '/error_data/kernel_data_' + dataset + '.npy', kernel_data)
+=======
+np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_TMDpts_twowell.npy', error_data_TMD_FEM)
+np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
+np.save(os.getcwd() + '/error_data/kernel_data_' + dataset + '.npy', kernel_data)
+>>>>>>> Stashed changes

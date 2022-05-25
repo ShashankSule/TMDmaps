@@ -60,7 +60,7 @@ for i = 1 : nrefine
     [pts,tr] = refine(pts,tr);
 end
 %% smooth mesh
-[pts,tr] = smoothmesh(pts,tr);
+% [pts,tr] = smoothmesh(pts,tr);
 triplot(tr,pts(:,1),pts(:,2),'color','r');
 %% Start processing mesh
 %% extract boundary nodes and boundary edges

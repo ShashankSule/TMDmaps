@@ -8,9 +8,10 @@ YMIN = -0.5; YMAX = 2;
 bbxmin = -4; bbxmax = 2;
 bbymin = -2; bbymax = 4;
 bbox = [bbxmin,bbymin;bbxmax,bbymax];
-xv = linspace(bbxmin,bbxmax,100); yv = linspace(bbymin,bbymax,100);
+res = 100;
+xv = linspace(bbxmin,bbxmax,res); yv = linspace(bbymin,bbymax,res);
 [xx,yy] = meshgrid(xv,yv);
-v = reshape(mueller([xx(:),yy(:)]),100,100);
+v = reshape(mueller([xx(:),yy(:)]),res,res);
 % figure;
 % hold on
 % h = contour(xv,yv,v,[-200 : 25 : 1600]);
@@ -29,7 +30,7 @@ a = [-0.558;1.441]; % center of A
 b = [0.623;0.028]; % center of B
 r = 0.1;
 Vbdry = 100;
-t = linspace(0,2*pi,21)';
+t = linspace(0,2*pi,20)';
 t(end) = [];
 pA = [a(1)+r*cos(t),a(2)+r*sin(t)];
 pB = [b(1)+r*cos(t),b(2)+r*sin(t)];

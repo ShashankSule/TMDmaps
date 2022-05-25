@@ -61,15 +61,15 @@ elif dataset == 'uniform':
   inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Muller_Data_FEM20_uniform.mat")
   qFEM = inData['interpolant'].flatten()
   N = data.shape[1]
-  outliers = np.zeros(N)
-  for n in range(N):
-      if model_systems.muller_potential(data[:, n]) > 70:
-          outliers[n] = True
+  # outliers = np.zeros(N)
+  # for n in range(N):
+  #     if model_systems.muller_potential(data[:, n]) > 70:
+  #         outliers[n] = True
   # Define what points to keep and not for equivalence between metad and gibbs
   # datasets
-  outliers = np.logical_not(outliers)
-  data = data[:,outliers]
-  qFEM = qFEM[outliers]
+  # outliers = np.logical_not(outliers)
+  # data = data[:,outliers]
+  # qFEM = qFEM[outliers]
   data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
   qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
 else: 
@@ -84,13 +84,7 @@ else:
   qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
 
 N = data.shape[1]
-
-# FEM Committor Data
-inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Muller_Data_FEM20_T_30.mat")
-qFEM = inData['interpolant'].flatten()
-data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
-qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
-
+print(N)
 # prepare parameters
 
 if dataset == 'uniform':
@@ -127,7 +121,7 @@ def onepass(t):
   N = np.size(ϵ_net) # number of points in net
   if n_neigh > N:
     n_neigh = N-2
-  print("Computing for parameters: ", eps, delta, n_neigh, delta, end = "...\n")
+  print("Computing for parameters: ", eps, delta, n_neigh, delta, end = "...")
   err_boolz = helpers.throwing_pts_muller(data, vbdry) # set up error points based on vbdry 
   error_bool = err_boolz['error_bool']
   A_bool = err_boolz['A_bool']
@@ -139,7 +133,6 @@ def onepass(t):
   C_bool_current = C_bool[ϵ_net]
   error_bool_current = error_bool[ϵ_net]
   q_FEM_current = qFEM[ϵ_net]
-
   # Set KNN number of neighbors
   #n_neigh = knn
   #print(f"KNN num neighbors: {n_neigh}") 
@@ -167,14 +160,9 @@ def onepass(t):
   target_dmap.construct_generator(data_current)
   K = target_dmap.get_kernel()
   L = target_dmap.get_generator()
-
-  # use this bit of code to compute kernel sum value 
-  if flag: 
-          distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
-          return (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances))/scipy.sparse.csr_matrix.mean(K)
   
   try:
-    q = target_dmap.construct_committor(L, B_bool_current, C_bool_current);
+    q = target_dmap.construct_committor(L, B_bool_current, C_bool_current)
   except BaseException as e: 
     print(e)
     error_data_TMD_FEM[i,j,k,l] = nan
@@ -182,7 +170,6 @@ def onepass(t):
   else:  
     
     # compute tmd-fem error
-
     qFEM_restr = q_FEM_current[error_bool_current]
     q_restr = q[error_bool_current]
     error_data_TMD_FEM[i,j,k,l] = helpers.RMSerror(q_restr,qFEM_restr) # compute TMD-FEM error
@@ -196,7 +183,11 @@ def onepass(t):
     fem_interpolant_refined = np.delete(fem_committor_vbdry, np.where(np.isnan(rev_interpolant)))
     error_data_FEM_TMD[i,j,k,l] = helpers.RMSerror(rev_interpolant_refined, fem_interpolant_refined)
     print("Errors are: ", (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l]))
-  return (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l])
+    # use this bit of code to compute kernel sum value 
+    if flag: 
+            distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
+            return (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances))/scipy.sparse.csr_matrix.mean(K)
+    # return (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l])
 
 # parallelize and compute 
 
@@ -211,6 +202,7 @@ iters = itertools.product(range(num_idx), range(num_delta), range(num_knn), rang
 #     print("error: ", e)
 for i in iters:
   try:
+    # kernel_data[i] = onepass(i)
     kernel_data[i] = onepass(i)
   except BaseException as e: 
     print("Exception: ", e)
@@ -219,6 +211,6 @@ for i in iters:
     else:
       continue
 np.save(os.getcwd()+'/error_data/K_vals_'+dataset+'.npy', kernel_data)
-# np.save('Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
-# np.save('Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
+np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
+np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
 # onepass((0,4,0,0))
