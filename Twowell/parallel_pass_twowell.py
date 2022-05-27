@@ -60,7 +60,7 @@ elif dataset == 'uniform':
         N = data.shape[1]
 else: 
         # Load gibbs density data
-        inData = scipy.io.loadmat("/ground_data/Twowell_trajectory_1.5.mat")
+        inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_trajectory_1.5.mat")
         data = inData['traj']
         data = data.T
         inData = scipy.io.loadmat(os.getcwd() + "/ground_data/Twowell_FEM_1_gibbs_0.66.mat")
