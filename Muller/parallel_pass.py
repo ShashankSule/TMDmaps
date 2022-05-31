@@ -46,13 +46,14 @@ print(dataset)
 
 if dataset == 'metadynamics':
   # Load metadynamics 
-  inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Muller_Data_Metadynamics_20.mat") # to load metadynamics data, use "Muller_Data_FEM20_data20_Metadynamics.mat"
+  inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Muller_Data_Metadynamics_longsample_20.mat") # to load metadynamics data, use "Muller_Data_FEM20_data20_Metadynamics.mat"
   data = inData['samples']
   data = data.T
-  inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Muller_Data_FEM20_data20_metadynamics.mat")
+  inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Muller_Data_FEM20_data20_metadynamics_long.mat")
   qFEM = inData['interpolant'].flatten()
-  data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
-  qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+  # data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+  # qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+  N = data.shape[1]
 elif dataset == 'uniform':
   # Load uniform 
   inData = scipy.io.loadmat(os.getcwd()+ "/ground_data/Muller_Data_Uniform.mat") # to load metadynamics data, use "Muller_Data_FEM20_data20_Metadynamics.mat"
@@ -70,8 +71,8 @@ elif dataset == 'uniform':
   # outliers = np.logical_not(outliers)
   # data = data[:,outliers]
   # qFEM = qFEM[outliers]
-  data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
-  qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+  # data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+  # qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
 else: 
   # Load Boltzmann trajectory @ 20
   datavar = 'FEM20_data20'
@@ -80,8 +81,8 @@ else:
   data = inData['traj']
   qFEM = inData['fem_committor']
   data = data.T
-  data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
-  qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
+  # data = np.delete(data, np.where(np.isnan(qFEM)), axis = 1) 
+  # qFEM = np.delete(qFEM, np.where(np.isnan(qFEM))) # delete the points where qFEM is nan 
 
 N = data.shape[1]
 print(N)
@@ -181,6 +182,8 @@ def onepass(t):
     # compute tmd-fem error
     qFEM_restr = q_FEM_current[error_bool_current]
     q_restr = q[error_bool_current]
+    qFEM_restr = np.delete(qFEM_restr, np.where(np.isnan(qFEM_restr)))
+    q_restr = np.delete(q_restr, np.where(np.isnan(qFEM_restr)))
     error_data_TMD_FEM[i,j,k,l] = helpers.RMSerror(q_restr,qFEM_restr) # compute TMD-FEM error
 
     # compute fem-tmd error 
@@ -191,7 +194,14 @@ def onepass(t):
     rev_interpolant_refined = np.delete(rev_interpolant, np.where(np.isnan(rev_interpolant)))
     fem_interpolant_refined = np.delete(fem_committor_vbdry, np.where(np.isnan(rev_interpolant)))
     error_data_FEM_TMD[i,j,k,l] = helpers.RMSerror(rev_interpolant_refined, fem_interpolant_refined)
-    # print("Errors are: ", (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l]))
+    print(error_data_FEM_TMD[i,j,k,l], error_data_TMD_FEM[i,j,k,l], sep = "...")
+                
+  # compute k_curve values 
+  if flag: 
+      distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
+      kk = (0.5/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances**2))/scipy.sparse.csr_matrix.mean(K)
+      print(kk)
+      return kk
 
 # parallelize and compute 
 
@@ -216,6 +226,6 @@ for i in iters:
       continue
 np.save(os.getcwd()+'/error_data/K_vals_'+dataset+'.npy', kernel_data)
 np.save(os.getcwd() + '/error_data/N_data_' + dataset + '.npy', N_data)
-# np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
-# np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
+np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
+np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
 # onepass((0,4,0,0))
