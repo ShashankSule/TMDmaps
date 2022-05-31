@@ -97,7 +97,7 @@ def onepass(t):
         N = np.size(ϵ_net) # number of points in net
         if n_neigh > N:
                 n_neigh = N-2
-        print("Computing for parameters: ", eps, delta, n_neigh, vbdry, end = "...\n")
+        print("Computing for parameters: ", eps, delta, n_neigh, vbdry, end = "...")
         err_boolz = helpers.throwing_pts_twowell(data, vbdry) # set up error points based on vbdry 
         error_bool = err_boolz['error_bool']
         A_bool = err_boolz['A_bool']
@@ -131,6 +131,13 @@ def onepass(t):
         K = target_dmap.get_kernel()
         L = target_dmap.get_generator()
 
+        # compute k curve values 
+        if flag: 
+            distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
+            kk = (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances**2))/scipy.sparse.csr_matrix.mean(K)
+            print(kk)
+            return kk
+        
         try:
                 q = target_dmap.construct_committor(L, B_bool_current, C_bool_current);
         except BaseException as e: 
@@ -158,12 +165,8 @@ def onepass(t):
                         except:
                                 error_data_FEM_TMD[i,j,k,l] = nan 
 
-                print(error_data_FEM_TMD[i,j,k,l], error_data_TMD_FEM[i,j,k,l])
+                # print(error_data_FEM_TMD[i,j,k,l], error_data_TMD_FEM[i,j,k,l])
 
-        # compute k curve values 
-        if flag: 
-            distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
-            return (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances))/scipy.sparse.csr_matrix.mean(K)
 # parallelize and compute 
 print("Data checks out. Computing now...")
 iters = itertools.product(range(num_idx), range(num_delta), range(num_knn), range(num_vbdry))
@@ -181,6 +184,6 @@ for i in iters:
     print("Exception: ", e)
     continue
 
-np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_TMDpts_twowell.npy', error_data_TMD_FEM)
-np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
+# np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_TMDpts_twowell.npy', error_data_TMD_FEM)
+# np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
 np.save(os.getcwd() + '/error_data/kernel_data_' + dataset + '.npy', kernel_data)
