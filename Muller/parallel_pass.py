@@ -107,6 +107,7 @@ print(num_idx, num_delta, num_knn, num_vbdry)
 
 # use this for computing kernel sums 
 kernel_data = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
+N_data = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
 flag = True 
 
 # define one process 
@@ -121,6 +122,8 @@ def onepass(t):
   N = np.size(ϵ_net) # number of points in net
   if n_neigh > N:
     n_neigh = N-2
+  if flag:
+          N_data[i,j,k,l] = N
   print("Computing for parameters: ", eps, delta, n_neigh, delta, end = "...")
   err_boolz = helpers.throwing_pts_muller(data, vbdry) # set up error points based on vbdry 
   error_bool = err_boolz['error_bool']
@@ -161,6 +164,12 @@ def onepass(t):
   K = target_dmap.get_kernel()
   L = target_dmap.get_generator()
   
+  # compute k curve values 
+  if flag: 
+      distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
+      kk = (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances**2))/scipy.sparse.csr_matrix.mean(K)
+      print(kk)
+      return kk
   try:
     q = target_dmap.construct_committor(L, B_bool_current, C_bool_current)
   except BaseException as e: 
@@ -182,12 +191,7 @@ def onepass(t):
     rev_interpolant_refined = np.delete(rev_interpolant, np.where(np.isnan(rev_interpolant)))
     fem_interpolant_refined = np.delete(fem_committor_vbdry, np.where(np.isnan(rev_interpolant)))
     error_data_FEM_TMD[i,j,k,l] = helpers.RMSerror(rev_interpolant_refined, fem_interpolant_refined)
-    print("Errors are: ", (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l]))
-    # use this bit of code to compute kernel sum value 
-    if flag: 
-            distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
-            return (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances))/scipy.sparse.csr_matrix.mean(K)
-    # return (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l])
+    # print("Errors are: ", (error_data_TMD_FEM[i,j,k,l], error_data_FEM_TMD[i,j,k,l]))
 
 # parallelize and compute 
 
@@ -211,6 +215,7 @@ for i in iters:
     else:
       continue
 np.save(os.getcwd()+'/error_data/K_vals_'+dataset+'.npy', kernel_data)
-np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
-np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
+np.save(os.getcwd() + '/error_data/N_data_' + dataset + '.npy', N_data)
+# np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
+# np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
 # onepass((0,4,0,0))

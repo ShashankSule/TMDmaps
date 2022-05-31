@@ -84,6 +84,7 @@ error_data_FEM_TMD = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
 
 # use this for computing kernel sums 
 kernel_data = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
+N_data = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
 flag = True 
 
 def onepass(t):
@@ -97,6 +98,8 @@ def onepass(t):
         N = np.size(ϵ_net) # number of points in net
         if n_neigh > N:
                 n_neigh = N-2
+        if flag:
+                N_data[i,j,k,l] = N
         print("Computing for parameters: ", eps, delta, n_neigh, vbdry, end = "...")
         err_boolz = helpers.throwing_pts_twowell(data, vbdry) # set up error points based on vbdry 
         error_bool = err_boolz['error_bool']
@@ -134,7 +137,7 @@ def onepass(t):
         # compute k curve values 
         if flag: 
             distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
-            kk = (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances**2))/scipy.sparse.csr_matrix.mean(K)
+            kk = (0.5/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances**2))/scipy.sparse.csr_matrix.mean(K)
             print(kk)
             return kk
         
@@ -187,3 +190,4 @@ for i in iters:
 # np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_TMDpts_twowell.npy', error_data_TMD_FEM)
 # np.save(os.getcwd() + '/error_data/Error_data' + dataset + 'beta_1_FEMpts_twowell.npy', error_data_FEM_TMD)
 np.save(os.getcwd() + '/error_data/kernel_data_' + dataset + '.npy', kernel_data)
+np.save(os.getcwd() + '/error_data/N_data_' + dataset + '.npy', N_data)
