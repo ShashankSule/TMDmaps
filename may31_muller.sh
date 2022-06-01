@@ -1,4 +1,4 @@
-!/bin/sh
+#!/bin/sh
 cd Muller
 python3 parallel_pass.py metadynamics
 echo "Done with metadynamics!"

@@ -109,7 +109,7 @@ print(num_idx, num_delta, num_knn, num_vbdry)
 # use this for computing kernel sums 
 kernel_data = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
 N_data = np.zeros((num_idx, num_delta, num_knn, num_vbdry))
-flag = True 
+flag = False 
 
 # define one process 
 
@@ -164,13 +164,7 @@ def onepass(t):
   target_dmap.construct_generator(data_current)
   K = target_dmap.get_kernel()
   L = target_dmap.get_generator()
-  
-  # compute k curve values 
-  if flag: 
-      distances = scipy.spatial.distance_matrix(data_current.T, data_current.T)
-      kk = (1/eps)*scipy.sparse.csr_matrix.mean(K.multiply(distances**2))/scipy.sparse.csr_matrix.mean(K)
-      print(kk)
-      return kk
+
   try:
     q = target_dmap.construct_committor(L, B_bool_current, C_bool_current)
   except BaseException as e: 
@@ -217,15 +211,15 @@ iters = itertools.product(range(num_idx), range(num_delta), range(num_knn), rang
 for i in iters:
   try:
     # kernel_data[i] = onepass(i)
-    kernel_data[i] = onepass(i)
+    onepass(i)
   except BaseException as e: 
     print("Exception: ", e)
     if e == KeyboardInterrupt:
       break
     else:
       continue
-np.save(os.getcwd()+'/error_data/K_vals_'+dataset+'.npy', kernel_data)
-np.save(os.getcwd() + '/error_data/N_data_' + dataset + '.npy', N_data)
+# np.save(os.getcwd()+'/error_data/K_vals_'+dataset+'.npy', kernel_data)
+# np.save(os.getcwd() + '/error_data/N_data_' + dataset + '.npy', N_data)
 np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_TMDpts_sampling20.npy', error_data_TMD_FEM)
 np.save(os.getcwd() + '/error_data/Error_data_' + dataset + '_beta_0.05_FEMpts_sampling20.npy', error_data_FEM_TMD)
 # onepass((0,4,0,0))
