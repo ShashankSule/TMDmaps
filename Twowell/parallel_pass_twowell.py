@@ -145,8 +145,8 @@ def onepass(t):
                 # compute tmd-fem error
                 qFEM_restr = q_FEM_current[error_bool_current]
                 q_restr = q[error_bool_current]
-                qFEM_restr = np.delete(qFEM_restr, np.where(np.isnan(qFEM_restr)))
                 q_restr = np.delete(q_restr, np.where(np.isnan(qFEM_restr)))
+                qFEM_restr = np.delete(qFEM_restr, np.where(np.isnan(qFEM_restr)))
                 error_data_TMD_FEM[i,j,k,l] = helpers.RMSerror(q_restr,qFEM_restr) # compute TMD-FEM error
 
                 # compute fem-tmd error
