@@ -12,16 +12,16 @@ res = 100;
 xv = linspace(bbxmin,bbxmax,res); yv = linspace(bbymin,bbymax,res);
 [xx,yy] = meshgrid(xv,yv);
 v = reshape(mueller([xx(:),yy(:)]),res,res);
-% figure;
-% hold on
-% h = contour(xv,yv,v,[-200 : 25 : 1600]);
-% h1 = contour(xv,yv,v,[1600,1600],'r','LineWidth',4);
-% h2 = contour(xv,yv,v,[-100,-100],'r','LineWidth',4);
-% grid
-% set(gca,'Fontsize',20);
-% colorbar
-% xlabel('x','Fontsize',20);
-% ylabel('y','Fontsize',20);
+figure;
+hold on
+h = contour(xv,yv,v,[-200 : 25 : 1600]);
+h1 = contour(xv,yv,v,[1600,1600],'r','LineWidth',4);
+h2 = contour(xv,yv,v,[-100,-100],'r','LineWidth',4);
+grid
+set(gca,'Fontsize',20);
+colorbar
+xlabel('x','Fontsize',20);
+ylabel('y','Fontsize',20);
 %%
 figure;
 hold on;
@@ -30,7 +30,7 @@ a = [-0.558;1.441]; % center of A
 b = [0.623;0.028]; % center of B
 r = 0.1;
 Vbdry = 100;
-t = linspace(0,2*pi,20)';
+t = linspace(0,2*pi,20)'; % adjust this one to vary mesh size 
 t(end) = [];
 pA = [a(1)+r*cos(t),a(2)+r*sin(t)];
 pB = [b(1)+r*cos(t),b(2)+r*sin(t)];
@@ -201,7 +201,7 @@ b = sparse(size(coordinates,1),1);
 for j = 1:size(elements3,1)
   A(elements3(j,:),elements3(j,:)) = A(elements3(j,:),elements3(j,:)) ...
       + stima3(coordinates(elements3(j,:),:)) * ...
-      exp(-0.1*mypot(sum(coordinates(elements3(j,:),:),1)/3));
+      exp(-0.05*mypot(sum(coordinates(elements3(j,:),:),1)/3));
 end
 
 % Volume Forces
