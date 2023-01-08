@@ -19,12 +19,12 @@ V = mueller([x(:),y(:)]);
 % hold on
 % grid;
 %% parameters for time stepping
-h = 1e-5; % time step
+h = 1e-4; % time step
 Temp = 20; % temperature
 sqh = sqrt(h*2*Temp);
-% traj = zeros(Ndeposit+1,2);
-% subsample = 1e2;
-% samples = zeros(floor(Ndeposit*Nbumps/subsample),2); 
+traj = zeros(Ndeposit+1,2);
+subsample = 1e3;
+samples = zeros(floor(Ndeposit*Nbumps/subsample),2); 
 x0 = [0,0];
 coef = zeros(Nbumps,1);
 xbump = zeros(Nbumps,2);
@@ -39,11 +39,11 @@ for k = 1 : Nbumps
         aux2 = traj(j,2)-xbump(:,2);      
         dVbump = sum((coef*[1,1]).*[aux1,aux2].*(exp(-0.5*(aux1.^2+aux2.^2)/sig2)*[1,1]),1)/sig2;
         traj(j+1,:) = traj(j,:) - h*(dVmueller-dVbump) + w(j,:);
-%         % subsampling routine 
-%         if mod((k-1)*Ndeposit + j, subsample) == 0 
-%             samples(i,:) = traj(j,:);
-%             i = i+1; 
-%         end
+        % subsampling routine 
+        if mod((k-1)*Ndeposit + j, subsample) == 0 
+            samples(i,:) = traj(j,:);
+            i = i+1; 
+        end
     end
     % plot(traj(:,1),traj(:,2));
     % drawnow;

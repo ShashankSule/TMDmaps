@@ -12,21 +12,39 @@ contour(x,y,reshape(V,N,N),-200:10:400,'linewidth',1,'color','k')
 hold on
 grid;
 %% parameters for time stepping
-dt = 1e-5; % time step
-Temp = 30; % temperature
+dt = 1e-4; % time step
+Temp = 1; % temperature
 sqh = sqrt(dt*2*Temp);
 N = 10^6; %length of full trajectory
-subsample = 10^2;
+subsample = 10^3;
 traj = zeros(floor(N/subsample),2);
-x0 = [0,0];
+x0 = [0.25,0.50];
 X = x0;
 j = 0;
 k = 0;
+figure; 
+hold on;
+contour(x,y,reshape(V,100,100),-200:50:400,'linewidth',1,'color','k')
+set(gca, 'YTickLabel', [])
+set(gca, 'XTickLabel', [])
+set(gca, 'YTick', [])
+set(gca, 'XTick', [])
+xlim([-1.5, 1.5])
+ylim([-0.5,2])
+grid;
 while j < N
     dVmueller = grad_mueller(X);
     X = X - dt*dVmueller + sqh*randn(1,2);
+%     s = scatter(X(1), X(2),50, 'filled');
+%     s.MarkerFaceAlpha = 0.6;
+%     drawnow;
+%     hold on;
     if mod(j, subsample) == 0
         traj(k+1,:) = X;
+        % s = scatter(X(1), X(2),40, 'filled');
+        % s.MarkerFaceAlpha = 0.6;
+        % drawnow;
+        % hold on;
         k = k + 1;
     end
     j = j + 1;
@@ -36,9 +54,25 @@ end
 %%
 figure;
 hold on;
+contour(x,y,reshape(V,100,100),-200:20:400,'linewidth',1,'color','k')
+% grid;
+p = plot(traj(:,1), traj(:,2), '-', 'LineWidth', 5);
+p.Color(4) = 0.2;      
+color = turbo(k); 
+s = scatter(traj(:,1), traj(:,2), 100, color, 'filled', 'MarkerFaceAlpha',0.6);
+xlim([-0.5 1]);
+ylim([-0.5 1]);
+
+%% gif plotter
+figure;
+hold on;
 contour(x,y,reshape(V,100,100),-200:10:400,'linewidth',1,'color','k')
-grid;
-scatter(traj(:,1), traj(:,2),10, 'filled');
+xlim([-0.5 1])
+ylim([-0.5 1])
+for i=1:1000
+    p = plot(traj(1:i,1),traj(1:i,2), 'ro-'); 
+    drawnow;
+end
 end
 %%
 %%
@@ -76,8 +110,7 @@ for i = 1 : 4
     dVnew(:,2)=(2*c(i)*(x(:,2)-Y(i))+b(i)*(x(:,1)-X(i))).*Vnew;
     dV=dV+dVnew;
 end
-        
+
+
 end
-
-
 
