@@ -194,13 +194,13 @@ def distmesh2D(fd,fh,h0,bbox,pfix):
         Nidx = np.size(idx)
         idx = np.reshape(idx,(Nidx,))        
         displacement = np.amax(np.sqrt(np.sum(deltat*Ftot[idx,:]**2,axis=1))/h0) # mamimal displacement, scaled
-        if np.remainder(count,jshow)==0:
-            print("count = ",count,"displacement = ",displacement)
+        # if np.remainder(count,jshow)==0:
+        #     print("count = ",count,"displacement = ",displacement)
        
     pts,tri = fixmesh(pts,tri)
-    plt.triplot(pts[:,0],pts[:,1],tri,linewidth=0.1)
-    axes=plt.gca()
-    axes.set_aspect(1)
+    # plt.triplot(pts[:,0],pts[:,1],tri,linewidth=0.1)
+    # axes=plt.gca()
+    # axes.set_aspect(1)
     return pts,tri    
     
     

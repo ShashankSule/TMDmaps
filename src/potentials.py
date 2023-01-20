@@ -17,6 +17,10 @@ class Muller:
         self.datadir = datadir # set directory for data
         self.centerx_A, self.centery_A, self.rad_A = [-0.558, 1.441, 0.1] # set centres of A 
         self.centerx_B, self.centery_B, self.rad_B = [0.623, 0.028, 0.1]  # set centres of B 
+        self.xmin = -4.0
+        self.xmax = 2.0
+        self.ymin = -2
+        self.ymax = 4
     
     def potential(self, x): 
         return model_systems.muller_potential(x) # V
@@ -98,19 +102,20 @@ class Muller:
       plt.xlim([xmin, xmax])
       plt.ylim([ymin, ymax])
       plt.title("Gibbs Density")
+    
+    def load_fem(self):
+        self.qfem = scipy.io.loadmat(self.datadir)
 
 # two well
+# two well
 class Twowell:
-    def __init__(self, target_beta, datadir):
+    def __init__(self, target_beta):
         if target_beta != 1: 
             print("Temperature not equals 1 is still under construction. Setting T = 20...")
         
         self.target_beta = 1; # set beta 
         self.Z = 4284.628955358415 # set partition function for beta = 1 
-        self.centerx_A, self.centery_A, self.rad_A = [-1.0 , 0., 0.15] # geometry of A 
-        self.centerx_B, self.centery_B, self.rad_B = [1.0, 0., 0.15] # geometry of B
-        self.datadir = "/Users/shashanksule/Documents/TMDmaps/data/Twowell" # data directory, change this to run 
-                                                                  # on your own machine when calling object
+    
     def potential(self,x):
         return model_systems.twowell_potential(x) # V
     
@@ -120,7 +125,10 @@ class Twowell:
     def density(self, x): 
         return np.exp(-self.target_beta*self.potential(x))/self.Z # density 
     
-
+    centerx_A, centery_A, rad_A = [-1.0 , 0., 0.15] # geometry of A 
+    centerx_B, centery_B, rad_B = [1.0, 0., 0.15] # geometry of B
+    datadir = "/Users/shashanksule/Documents/TMDmaps/data/Twowell" # data directory, change this to run 
+                                                                  # on your own machine when calling object
     
     def throwing_pts_twowell(self, data, Vbdry):
         
@@ -191,3 +199,6 @@ class Twowell:
       plt.xlim([xmin, xmax])
       plt.ylim([ymin, ymax])
       plt.title("Gibbs Density")
+    
+    def load_fem(self):
+        self.qfem = scipy.io.loadmat(self.datadir)
