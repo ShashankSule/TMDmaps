@@ -33,9 +33,10 @@ def euler_maruyama_OLD(drift, beta, dt, x0, samples=1e4, subsample=1e2):
     
     return traj 
 
-def euler_maruyama_metadynamics_OLD(drift, beta, dt, x0, height, Ndeposit = int(1e4), Nbumps = int(1e2), subsample=1e2):
+def euler_maruyama_metadynamics_OLD(drift, beta, dt, x0, height, sig, Ndeposit = int(1e4), Nbumps = int(1e2), subsample=1e2):
     
     # setup 
+    sig2 = sig**2 
     n = x0.shape[0] # get dims of problem
     sqh = np.sqrt(2*dt*(1/beta)) # time step re-normalization for euler-maruyama
     samples = np.zeros((int(np.floor(Ndeposit*Nbumps/subsample)),n)) # number of samples 
@@ -55,7 +56,7 @@ def euler_maruyama_metadynamics_OLD(drift, beta, dt, x0, height, Ndeposit = int(
 
             # compute modified gradient 
             aux = current_point - xbump # x - x_i 
-            mod_grads = aux*(np.exp(-0.5*np.linalg.norm(aux,axis=1)**2).reshape(coef.shape))
+            mod_grads = aux*(np.exp(-(1/sig2)*0.5*np.linalg.norm(aux,axis=1)**2).reshape(coef.shape))/sig2
             dVbump = np.sum(coef*mod_grads, axis=0) 
 
             # compute drift gradient 

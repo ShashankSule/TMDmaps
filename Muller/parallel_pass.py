@@ -161,7 +161,6 @@ def onepass(t):
   #reg_dmap = dmap.DiffusionMap(epsilon=eps, alpha=0.5,
   #                                          n_neigh=n_neigh, target_measure=target_measure)
 
-  target_dmap.construct_generator(data_current)
   K = target_dmap.get_kernel()
   L = target_dmap.get_generator()
 
@@ -177,7 +176,7 @@ def onepass(t):
     qFEM_restr = q_FEM_current[error_bool_current]
     q_restr = q[error_bool_current]
     q_restr = np.delete(q_restr, np.where(np.isnan(qFEM_restr)))
-    qFEM_restr = np.delete(qFEM_restr, np.where(np.isnan(qFEM_restr)))
+    qFEM_restr = np.delete(qFEM_restr, np.where(np.isnan(qFEM_restr)[0]))
     error_data_TMD_FEM[i,j,k,l] = helpers.RMSerror(q_restr,qFEM_restr) # compute TMD-FEM error
 
     # compute fem-tmd error 
