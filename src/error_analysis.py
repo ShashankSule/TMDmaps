@@ -20,6 +20,7 @@ import matplotlib.tri as tri
 import scipy.io
 import time 
 from mpl_toolkits.mplot3d import axes3d
+import argparse
 
 # parallelization modules 
 from math import nan
@@ -34,30 +35,34 @@ from fem.distmesh import *
 from fem.FEM_TPT import *
 import sampling 
 
+# get args from command line 
+parser = argparse.ArgumentParser()
+parser.add_argument("--sys", type=str, help="either muller or twowell", default='')
+parser.add_argument("--dset", type=str, help="gibbs/metadynamics/uniform", default='gibbs')
+parser.add_argument("--tru", type=str, help="location of ground truth solution", default='')
+parser.add_argument("--save", type=str, help="where to save error data", default='')
+args = parser.parse_args()
 
-# # Set up the problem 
 
-# In[4]:
-
+problem = args.sys
+dataset = args.dset
+datadir = args.tru
+savedir = args.save
 
 # first choose problem 
-problem = "muller"
-datadir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/ground_data/DistmeshMueller_20.mat"
+# problem = "muller"
+# datadir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/ground_data/DistmeshMueller_20.mat"
 if problem == "muller":
     system = potentials.Muller(1/20, datadir) 
 elif problem == "twowell":
     system = potentials.Twowell(1, datadir)
 else:
     print("invalid problem")
-savedir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/error_data/"
-
-
-# In[5]:
-
+# savedir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/error_data/"
 
 # next choose dataset params 
 
-dataset = "metadynamics"
+# dataset = "metadynamics"
 x0 = np.array([0,0])
 dt = 1e-4
 Vbdry = 10 # 10 for muller, 1 (or less for twowell)
@@ -70,21 +75,14 @@ height = 5*np.ones(Nbumps)
 sig = 0.05 
 
 
-# In[6]:
-
-
 # compute dataset 
 
 if dataset == "gibbs": 
-    data = sampling.euler_maruyama_OLD(system.drift, system.target_beta,                                        dt, x0,                                        int(1e6), int(1e2))
+    data = sampling.euler_maruyama_OLD(system.drift, system.target_beta,dt, x0,int(1e6), int(1e2))
 elif dataset == "metadynamics":
-    data = sampling.euler_maruyama_metadynamics_OLD(system.drift, system.target_beta,                                                     dt, x0, height, sig,                                                     Ndeposit, Nbumps, subsample)
+    data = sampling.euler_maruyama_metadynamics_OLD(system.drift, system.target_beta,dt, x0, height, sig,Ndeposit, Nbumps, subsample)
 elif dataset == "uniform": 
     data = sampling.fem_pts(system, 0.05, Vbdry)
-
-
-# In[70]:
-
 
 # visualize dataset 
 
@@ -199,7 +197,7 @@ else:
 # set up all the other parameters of the system 
 # epsilons = [2**(-5), 2**(-6)]
 epsilons = list(2.0**np.arange(-16, 2, 0.25))
-vbdry = [10,-10]
+vbdry = [10]
 n_neigh = [1024]
 args = list(itertools.product(*[epsilons, datasets, vbdry, n_neigh])) # create iterable for multiprocess
 params = {"epsilons": epsilons, "deltas": deltas, "vbry": vbdry, "n_neigh": n_neigh}
