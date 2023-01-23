@@ -68,9 +68,9 @@ dt = 1e-4
 Vbdry = 10 # 10 for muller, 1 (or less for twowell)
 
 # metadynamics params here
-Nbumps = int(1e2) 
+Nbumps = int(1e3) 
 Ndeposit = int(1e3)
-subsample = int(1e1)
+subsample = int(1e2)
 height = 5*np.ones(Nbumps)
 sig = 0.05 
 
@@ -101,8 +101,8 @@ def error_data(t, count_points = False, kernel_stats = False, verbose = False, e
     
     ϵ, data_uniformized, vbdry, n_neigh = t # unravel parameters 
     
-    if verbose:
-         print("Started!")
+    # if verbose:
+    #      print("Started!")
     
     err_boolz = system.throwing_pts_muller(data_uniformized.T, vbdry) # get points on data for error calculation
     fem_error_boolz = system.throwing_pts_muller(system.qfem['pts'].T, vbdry) # get points on fem mesh for error calc.
@@ -144,8 +144,8 @@ def error_data(t, count_points = False, kernel_stats = False, verbose = False, e
         except BaseException as e:
             outputs.append(1e10)
         else:
-            if verbose:
-                 print("hard part--done!")
+            # if verbose:
+            #      print("hard part--done!")
 
             # checking interpolation, run this only if you want
             q_interpolant_fem_to_tmd = scipy.interpolate.griddata(system.qfem['pts'], system.qfem['committor'],                                                                  data_uniformized, method='linear')
@@ -159,11 +159,13 @@ def error_data(t, count_points = False, kernel_stats = False, verbose = False, e
             q_tmd_error = q_tmd[err_boolz['error_bool']]
             q_interpolant_fem_to_tmd_error = q_interpolant_fem_to_tmd[err_boolz['error_bool']].reshape(q_tmd_error.shape)
             
-            if verbose:
-                 print("Done!")
+            # if verbose:
+            #      print("Done!")
             
             outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, checknans=False))
-        
+
+            if verbose:
+                print("N = ", outputs[0], " s.e = ", outputs[1], " epsilon = ", ϵ, " error = ", outputs[2])
     return outputs 
 
 
@@ -207,7 +209,7 @@ print("parameters are ready! Beginning error analysis...")
 
 # run error analysis 
 
-parallel = True
+parallel = False
 count_points = True
 kernel_stats = True
 error_stats = True
