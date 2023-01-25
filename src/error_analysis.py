@@ -53,9 +53,13 @@ savedir = args.save
 # problem = "muller"
 # datadir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/ground_data/DistmeshMueller_20.mat"
 if problem == "muller":
-    system = potentials.Muller(1/20, datadir) 
+    system = potentials.Muller(1/20, datadir)
+    Vbdry = 10 
+    system.plant_point = np.array([1.0, 0.0])
 elif problem == "twowell":
     system = potentials.Twowell(1, datadir)
+    Vbdry = 1
+    system.plant_point = np.array([1.0, -0.5])
 else:
     print("invalid problem")
 # savedir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/error_data/"
@@ -65,7 +69,6 @@ else:
 # dataset = "metadynamics"
 x0 = np.array([0,0])
 dt = 1e-4
-Vbdry = 10 # 10 for muller, 1 (or less for twowell)
 
 # metadynamics params here
 Nbumps = int(1e3) 
@@ -95,18 +98,24 @@ system.load_fem()
 print("System has been set up!")
 
 
+
 # # Run error sweep for one parameter combination 
 
-def error_data(t, count_points = False, kernel_stats = False, verbose = False, error_stats = True): 
+def error_data(t, \
+               pw_error=False, count_points = False, kernel_stats = False, \
+               verbose = False, error_stats = True): 
     
     ϵ, data_uniformized, vbdry, n_neigh = t # unravel parameters 
     
-    # if verbose:
-    #      print("Started!")
+    if verbose:
+         print("Started!")
+    
+    if pw_error:
+        data_uniformized = np.vstack((data_uniformized, system.plant_point))
     
     err_boolz = system.throwing_pts_muller(data_uniformized.T, vbdry) # get points on data for error calculation
     fem_error_boolz = system.throwing_pts_muller(system.qfem['pts'].T, vbdry) # get points on fem mesh for error calc.
-     
+    
     N = data_uniformized.shape[0] # get # of data points 
     outputs = []
     
@@ -124,13 +133,27 @@ def error_data(t, count_points = False, kernel_stats = False, verbose = False, e
         target_measure[i] = system.density(data_uniformized[i,:])
         
     # get tmdmap 
-    target_dmap = diffusion_map.TargetMeasureDiffusionMap(epsilon=ϵ, n_neigh=n_neigh,                                                           target_measure=target_measure)
-    # get kernel and generator 
+    target_dmap = diffusion_map.TargetMeasureDiffusionMap(epsilon=ϵ, n_neigh=n_neigh, \
+                                                          target_measure=target_measure)
+    
+    # get kernel and generator
     target_dmap.construct_generator(data_uniformized.T)
     K = target_dmap.get_kernel()
     L = target_dmap.get_generator() 
      
-    
+    if pw_error: 
+        # interpolate the true solution 
+        q_interpolant_fem_to_tmd = scipy.interpolate.griddata(system.qfem['pts'], system.qfem['committor'],\
+                                                              data_uniformized, method='linear')
+        # compute L_epsilon,mu * q(x)
+        Lf = L@q_interpolant_fem_to_tmd
+        
+        # attach to output array
+        if verbose:
+            print("Computed pw error!")
+
+        outputs.append(np.abs(Lf[-1]))
+        
     if kernel_stats:
         
         # singer's estimate 
@@ -142,14 +165,17 @@ def error_data(t, count_points = False, kernel_stats = False, verbose = False, e
         try:
             q_tmd = target_dmap.construct_committor(L, err_boolz['B_bool'], err_boolz['C_bool'])
         except BaseException as e:
+            print(e)
             outputs.append(1e10)
         else:
-            # if verbose:
-            #      print("hard part--done!")
+            if verbose:
+                 print("hard part--done!")
 
             # checking interpolation, run this only if you want
-            q_interpolant_fem_to_tmd = scipy.interpolate.griddata(system.qfem['pts'], system.qfem['committor'],                                                                  data_uniformized, method='linear')
-            q_interpolant_tmd_to_fem = scipy.interpolate.griddata(data_uniformized, q_tmd, system.qfem['pts'],                                                           method='linear')
+            q_interpolant_fem_to_tmd = scipy.interpolate.griddata(system.qfem['pts'], system.qfem['committor'],\
+                                                                  data_uniformized, method='linear')
+            q_interpolant_tmd_to_fem = scipy.interpolate.griddata(data_uniformized, q_tmd, system.qfem['pts'], \
+                                                          method='linear')
 
             # compute errors on fem points 
             q_fem_error = system.qfem['committor'][fem_error_boolz['error_bool']]
@@ -159,13 +185,11 @@ def error_data(t, count_points = False, kernel_stats = False, verbose = False, e
             q_tmd_error = q_tmd[err_boolz['error_bool']]
             q_interpolant_fem_to_tmd_error = q_interpolant_fem_to_tmd[err_boolz['error_bool']].reshape(q_tmd_error.shape)
             
-            # if verbose:
-            #      print("Done!")
+            if verbose:
+                 print(outputs)
             
             outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, checknans=False))
-
-            if verbose:
-                print("N = ", outputs[0], " s.e = ", outputs[1], " epsilon = ", ϵ, " error = ", outputs[2])
+        
     return outputs 
 
 
@@ -185,8 +209,8 @@ def uniformnet(scaling):
 # set up post-processed datasets 
 
 num = multiprocess.cpu_count()
-deltas = list(np.linspace(1e-6, 1e-1, 10))
-# deltas = [0.09, 1.0]
+# deltas = list(np.linspace(1e-6, 1e-1, 10))
+deltas = [0.09, 1.0]
 if dataset == "uniform":
     print("Special processing for uniform data...")
     deltas = list(np.linspace(0.05, 0.5, 10))
@@ -199,8 +223,8 @@ else:
 
 
 # set up all the other parameters of the system 
-# epsilons = [2**(-5), 2**(-6)]
-epsilons = list(2.0**np.arange(-16, 2, 0.25))
+epsilons = [2**(-5), 2**(-6), 2**(-7)]
+# epsilons = list(2.0**np.arange(-16, 2, 0.25))
 vbdry = [10]
 n_neigh = [1024]
 args = list(itertools.product(*[epsilons, datasets, vbdry, n_neigh])) # create iterable for multiprocess
@@ -209,14 +233,17 @@ params = {"epsilons": epsilons, "deltas": deltas, "vbry": vbdry, "n_neigh": n_ne
 print("parameters are ready! Beginning error analysis...")
 
 
-# run error analysis 
-
-parallel = False
+# run error analysis: this order is VERY important! 
 count_points = True
+pw_error = True
 kernel_stats = True
 error_stats = True
+
+# stats for algorithm 
 verbose = True
-def onepass(t): return error_data(t,count_points,kernel_stats, verbose, error_stats)
+parallel = False
+
+def onepass(t): return error_data(t,pw_error,count_points,kernel_stats, verbose, error_stats)
 
 if parallel: 
     with multiprocess.Pool(num) as pool:
@@ -227,22 +254,18 @@ else:
         ans = onepass(args[i])
         result.append(ans)
 
-# reorganize data
-N_points = []
-singer_estimates = []
-err_stats = []
-for i in range(len(result)):
-    N_points.append(result[i][0])
-    singer_estimates.append(result[i][1]) 
-    err_stats.append(result[i][2])
-
-# convert error data to numpy 
-N_tensor = np.array(N_points).reshape(len(epsilons), len(deltas), len(vbdry), len(n_neigh))
-err_tensor = np.array(err_stats).reshape(len(epsilons), len(deltas), len(vbdry), len(n_neigh))
-singer_estimates_tensor = np.array(singer_estimates).reshape(len(epsilons), len(deltas), len(vbdry), len(n_neigh))
-
-# write it all in a dict
-sim_results = {"N_points": N_tensor, "singer_estimates": singer_estimates_tensor, "error_tensor": err_tensor}
+# process data 
+stats = [count_points, pw_error, kernel_stats, error_stats]
+stat_names = np.array(["N_points", "PW_error", "singer_estimates", "error_tensor"], dtype=str)
+stat_names = stat_names[stats]
+sim_results = {}
+for names in stat_names:
+    sim_results[names] = []
+for j in range(len(result)):
+    for i in range (len(sim_results.items())):
+        sim_results[stat_names[i]].append(result[j][i])
+for name,_ in sim_results.items():
+    sim_results[name] = np.array(sim_results[name]).reshape(len(epsilons), len(deltas), len(vbdry), len(n_neigh))
 
 # write to file 
 stats = {"system": problem, "beta": system.target_beta, "args": params, "sim_results": sim_results}
