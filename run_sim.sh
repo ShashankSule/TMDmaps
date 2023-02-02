@@ -10,4 +10,6 @@ savepath=$rootpath/data/Muller/error_data/
 # fempath=$rootpath/data/Twowell/ground_data/DistmeshTwowell_1.mat 
 # savepath=$rootpath/data/Twowell/error_data 
 
-python3 src/error_analysis.py --sys muller --dset uniform --tru $fempath --save $savepath 
+for var in gibbs metadynamics uniform 
+    do python3 src/error_analysis.py --sys muller --dset $var --tru $fempath --save $savepath 
+done
