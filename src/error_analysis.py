@@ -144,20 +144,26 @@ def error_data(t, \
     if pw_error: 
         # interpolate the true solution 
         q_interpolant_fem_to_tmd = scipy.interpolate.griddata(system.qfem['pts'], system.qfem['committor'],\
-                                                              data_uniformized, method='linear')
+                                                            data_uniformized, method='linear')
         # compute L_epsilon,mu * q(x)
-        Lf = L@q_interpolant_fem_to_tmd
+        inds_bool = np.isnan(q_interpolant_fem_to_tmd)
         
-        # attach to output array
-        if verbose:
-            print("Computed pw error!")
-
-        outputs.append(np.abs(Lf[-1]))
+        # flash error message if the interpolation fails 
+        if inds_bool[-1]:
+            if verbose:
+                print("failed to interpolate to plant point")
+            outputs.append(nan)
+        else:
+            LL = L[np.where(~inds_bool)[0],:][:,np.where(~inds_bool)[0]]
+            qq = q_interpolant_fem_to_tmd[np.where(~inds_bool)]
+            Lf = L@q_interpolant_fem_to_tmd
+            outputs.append(np.abs(Lf[-1][0]))
         
     if kernel_stats:
         
         # singer's estimate 
         outputs.append(scipy.sparse.csr_matrix.mean(K))
+        print("Computed singer's estimates!")
      
     if error_stats: 
         
@@ -185,11 +191,11 @@ def error_data(t, \
             q_tmd_error = q_tmd[err_boolz['error_bool']]
             q_interpolant_fem_to_tmd_error = q_interpolant_fem_to_tmd[err_boolz['error_bool']].reshape(q_tmd_error.shape)
             
+            outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, checknans=False))
+
             if verbose:
                  print(outputs)
-            
-            outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, checknans=False))
-        
+
     return outputs 
 
 
@@ -210,7 +216,7 @@ def uniformnet(scaling):
 
 num = multiprocess.cpu_count()
 # deltas = list(np.linspace(1e-6, 1e-1, 10))
-deltas = [0.09, 1.0]
+deltas = [0.02, 0.04]
 if dataset == "uniform":
     print("Special processing for uniform data...")
     deltas = list(np.linspace(0.05, 0.5, 10))
@@ -268,7 +274,7 @@ for name,_ in sim_results.items():
     sim_results[name] = np.array(sim_results[name]).reshape(len(epsilons), len(deltas), len(vbdry), len(n_neigh))
 
 # write to file 
-stats = {"system": problem, "beta": system.target_beta, "args": params, "sim_results": sim_results}
+stats = {"system": problem, "sampling": dataset, "dataset": data, "beta": system.target_beta, "args": params, "sim_results": sim_results}
 filename = savedir + problem + "_" + dataset + ".npy"
 np.save(filename, stats)
 
