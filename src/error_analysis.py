@@ -144,15 +144,20 @@ def error_data(t, \
     if pw_error: 
         # interpolate the true solution 
         q_interpolant_fem_to_tmd = scipy.interpolate.griddata(system.qfem['pts'], system.qfem['committor'],\
-                                                              data_uniformized, method='linear')
+                                                            data_uniformized, method='linear')
         # compute L_epsilon,mu * q(x)
-        Lf = L@q_interpolant_fem_to_tmd
+        inds_bool = np.isnan(q_interpolant_fem_to_tmd)
         
-        # attach to output array
-        if verbose:
-            print("Computed pw error!")
-
-        outputs.append(np.abs(Lf[-1])[0])
+        # flash error message if the interpolation fails 
+        if inds_bool[-1]:
+            if verbose:
+                print("failed to interpolate to plant point")
+            outputs.append(nan)
+        else:
+            LL = L[np.where(~inds_bool)[0],:][:,np.where(~inds_bool)[0]]
+            qq = q_interpolant_fem_to_tmd[np.where(~inds_bool)]
+            Lf = L@q_interpolant_fem_to_tmd
+            outputs.append(Lf[-1][0])
         
     if kernel_stats:
         
