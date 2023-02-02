@@ -152,12 +152,13 @@ def error_data(t, \
         if verbose:
             print("Computed pw error!")
 
-        outputs.append(np.abs(Lf[-1]))
+        outputs.append(np.abs(Lf[-1])[0])
         
     if kernel_stats:
         
         # singer's estimate 
         outputs.append(scipy.sparse.csr_matrix.mean(K))
+        print("Computed singer's estimates!")
      
     if error_stats: 
         
@@ -185,11 +186,11 @@ def error_data(t, \
             q_tmd_error = q_tmd[err_boolz['error_bool']]
             q_interpolant_fem_to_tmd_error = q_interpolant_fem_to_tmd[err_boolz['error_bool']].reshape(q_tmd_error.shape)
             
+            outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, checknans=False))
+
             if verbose:
                  print(outputs)
-            
-            outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, checknans=False))
-        
+
     return outputs 
 
 
@@ -210,7 +211,7 @@ def uniformnet(scaling):
 
 num = multiprocess.cpu_count()
 # deltas = list(np.linspace(1e-6, 1e-1, 10))
-deltas = [0.09, 1.0]
+deltas = [0.02, 0.04]
 if dataset == "uniform":
     print("Special processing for uniform data...")
     deltas = list(np.linspace(0.05, 0.5, 10))
@@ -268,7 +269,7 @@ for name,_ in sim_results.items():
     sim_results[name] = np.array(sim_results[name]).reshape(len(epsilons), len(deltas), len(vbdry), len(n_neigh))
 
 # write to file 
-stats = {"system": problem, "beta": system.target_beta, "args": params, "sim_results": sim_results}
+stats = {"system": problem, "sampling": dataset, "dataset": data, "beta": system.target_beta, "args": params, "sim_results": sim_results}
 filename = savedir + problem + "_" + dataset + ".npy"
 np.save(filename, stats)
 
