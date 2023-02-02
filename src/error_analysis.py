@@ -157,7 +157,7 @@ def error_data(t, \
             LL = L[np.where(~inds_bool)[0],:][:,np.where(~inds_bool)[0]]
             qq = q_interpolant_fem_to_tmd[np.where(~inds_bool)]
             Lf = L@q_interpolant_fem_to_tmd
-            outputs.append(Lf[-1][0])
+            outputs.append(np.abs(Lf[-1][0]))
         
     if kernel_stats:
         
