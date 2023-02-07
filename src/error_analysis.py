@@ -219,7 +219,7 @@ deltas = list(np.linspace(1e-6, 1e-1, 10))
 # deltas = [0.02, 0.04]
 if dataset == "uniform":
     print("Special processing for uniform data...")
-    deltas = list(np.linspace(0.05, 0.5, 10))
+    deltas = list(np.linspace(0.02, 0.05, 10))
     with multiprocess.Pool(num) as processing_pool:
         datasets = processing_pool.map(uniformnet, deltas)
 else:
