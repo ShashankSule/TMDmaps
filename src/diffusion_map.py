@@ -9,7 +9,7 @@ from scipy.linalg.lapack import clapack as cla
 from sklearn.neighbors import NearestNeighbors
 from scipy.spatial import distance as sp_dist
 
-import helpers as helpers
+from . import helpers as helpers
 
 class DiffusionMap(object):
     r"""

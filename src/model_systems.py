@@ -4,7 +4,8 @@ import scipy.linalg as sp_linalg
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 import scipy.interpolate as scinterp
-
+import sys
+sys.path.append("..")
 
 def default_drift(x):
     # Set Parameters for defining Two Well Potential, Drift
@@ -194,7 +195,7 @@ def muller_drift(x):
     for i in range(4):
         u = x - nu[i, :]
         M = sig_inv[i, :, :]
-        force += 2*A[i]*np.exp(-u.dot(M.dot(u)))*M.dot(u)
+        force += 2*A[i]*np.exp(-u.dot(M.dot(u)))*M.dot(u) # THIS IS -grad V not grad V!!!
     return force
 
 def muller_potential(x):
@@ -344,7 +345,7 @@ def twowell_drift(x):
         mat = z@c_inv
         e = np.exp(-z@(c_inv@z.T))
         dV = dV - 2*e*mat
-    dV = -energy*dV + 4*(x**3)
+    dV = energy*dV - 4*(x**3)
     return dV
 
 def temp_switch_potential(x):

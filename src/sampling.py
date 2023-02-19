@@ -8,9 +8,11 @@ import os
 import numpy as np 
 import scipy.io
 import matplotlib.pyplot as plt
-import model_systems, helpers, potentials
-from fem.distmesh import *
-from fem.FEM_TPT import *
+import sys
+sys.path.append("..")
+from . import model_systems, helpers, potentials
+from .fem.distmesh import *
+from .fem.FEM_TPT import *
 
 def euler_maruyama_OLD(drift, beta, dt, x0, samples=1e4, subsample=1e2):
     # Euler-Maryuama subroutine for simulating SDE X_t = drift*dt + (2β^-1)dWt 

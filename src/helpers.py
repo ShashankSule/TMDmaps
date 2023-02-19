@@ -5,7 +5,9 @@ from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 import scipy.interpolate as scinterp
 import scipy.spatial
-import model_systems as model_systems
+import sys
+sys.path.append("..")
+from . import model_systems as model_systems
 ##############################################################
 # Functions helping with committor error, plotting committor, etc.
 ##############################################################

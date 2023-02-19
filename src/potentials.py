@@ -2,9 +2,10 @@ import os
 import numpy as np 
 import scipy.io
 import matplotlib.pyplot as plt
-import model_systems as model_systems
-import helpers as helpers
 import sys
+sys.path.append("..")
+from . import model_systems as model_systems
+from . import helpers as helpers
 
 # Muller
 class Muller:
@@ -32,7 +33,7 @@ class Muller:
         return np.exp(-self.target_beta*self.potential(x))/self.Z
 
     
-    def throwing_pts_muller(self, data, Vbdry):
+    def throwing_pts(self, data, Vbdry):
         
           # Throws points away from data depending on > Vbdry condition 
           # and potential well condition 
@@ -132,7 +133,7 @@ class Twowell:
     def density(self, x): 
         return np.exp(-self.target_beta*self.potential(x))/self.Z # density 
     
-    def throwing_pts_twowell(self, data, Vbdry):
+    def throwing_pts(self, data, Vbdry):
         
       # Throws points away from data depending on > Vbdry condition 
       # and potential well condition 

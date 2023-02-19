@@ -7,6 +7,7 @@
 import os
 import copy
 import sys 
+sys.path.append("..")
 
 # Regular Modules
 import numpy as np
@@ -30,10 +31,13 @@ import itertools
 import tqdm
 
 # # My Modules
-import model_systems, helpers, potentials, diffusion_map 
-from fem.distmesh import * 
-from fem.FEM_TPT import *
-import sampling 
+import src.model_systems as model_systems
+import src.helpers as helpers
+import src.potentials as potentials
+import src.diffusion_map as diffusion_map
+from src.fem.distmesh import * 
+from src.fem.FEM_TPT import *
+import src.sampling as sampling 
 
 # get args from command line 
 parser = argparse.ArgumentParser()
@@ -99,7 +103,10 @@ system.load_fem()
 
 print("System has been set up!")
 
-
+if problem == "muller":
+    system.plant_point = np.array([0.25,0.0])
+elif problem == "twowell":
+    system.plant_point = np.array([1.0, 1.20])
 
 # # Run error sweep for one parameter combination 
 
@@ -217,8 +224,8 @@ def uniformnet(scaling):
 # set up post-processed datasets 
 
 num = multiprocess.cpu_count()
-deltas = list(np.linspace(1e-6, 1e-1, 10))
-# deltas = [0.02, 0.04]
+# deltas = list(np.linspace(1e-6, 1e-1, 10))
+deltas = [0.02, 0.04]
 if dataset == "uniform":
     print("Special processing for uniform data...")
     deltas = list(np.linspace(0.02, 0.05, 10))
@@ -231,8 +238,8 @@ else:
 
 
 # set up all the other parameters of the system 
-# epsilons = [2**(-5), 2**(-6), 2**(-7)]
-epsilons = list(2.0**np.arange(-16, 2, 0.25))
+epsilons = [2**(-5), 2**(-6), 2**(-7)]
+# epsilons = list(2.0**np.arange(-16, 2, 0.25))
 vbdry = [10]
 n_neigh = [1024]
 args = list(itertools.product(*[epsilons, datasets, vbdry, n_neigh])) # create iterable for multiprocess
