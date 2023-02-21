@@ -7,7 +7,7 @@
 import os
 import copy
 import sys 
-sys.path.append("..")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 
 # Regular Modules
 import numpy as np
@@ -103,11 +103,6 @@ system.load_fem()
 
 print("System has been set up!")
 
-if problem == "muller":
-    system.plant_point = np.array([0.25,0.0])
-elif problem == "twowell":
-    system.plant_point = np.array([1.0, 1.20])
-
 # # Run error sweep for one parameter combination 
 
 def error_data(t, \
@@ -122,8 +117,8 @@ def error_data(t, \
     if pw_error:
         data_uniformized = np.vstack((data_uniformized, system.plant_point))
     
-    err_boolz = system.throwing_pts_muller(data_uniformized.T, vbdry) # get points on data for error calculation
-    fem_error_boolz = system.throwing_pts_muller(system.qfem['pts'].T, vbdry) # get points on fem mesh for error calc.
+    err_boolz = system.throwing_pts(data_uniformized.T, vbdry) # get points on data for error calculation
+    fem_error_boolz = system.throwing_pts(system.qfem['pts'].T, vbdry) # get points on fem mesh for error calc.
     
     N = data_uniformized.shape[0] # get # of data points 
     outputs = []
@@ -152,27 +147,28 @@ def error_data(t, \
      
     if pw_error: 
         # interpolate the true solution 
-        q_interpolant_fem_to_tmd = scipy.interpolate.griddata(system.qfem['pts'], system.qfem['committor'],\
-                                                            data_uniformized, method='linear')
+        q_interpolant_fem_to_tmd = scipy.interpolate.griddata(system.qfem['pts'], system.qfem['committor'], \
+                                                              data_uniformized, method='linear')
         # compute L_epsilon,mu * q(x)
         inds_bool = np.isnan(q_interpolant_fem_to_tmd)
-        
+
         # flash error message if the interpolation fails 
         if inds_bool[-1]:
             if verbose:
                 print("failed to interpolate to plant point")
             outputs.append(nan)
         else:
+            if verbose:
+                print(np.sum(inds_bool))
             LL = L[np.where(~inds_bool)[0],:][:,np.where(~inds_bool)[0]]
             qq = q_interpolant_fem_to_tmd[np.where(~inds_bool)]
-            Lf = L@q_interpolant_fem_to_tmd
-            outputs.append(np.abs(Lf[-1][0]))
+            Lf = LL@qq
+            outputs.append(np.abs(Lf[-1]))
         
     if kernel_stats:
         
         # singer's estimate 
         outputs.append(scipy.sparse.csr_matrix.mean(K))
-        print("Computed singer's estimates!")
      
     if error_stats: 
         
@@ -201,11 +197,10 @@ def error_data(t, \
             q_interpolant_fem_to_tmd_error = q_interpolant_fem_to_tmd[err_boolz['error_bool']].reshape(q_tmd_error.shape)
             
             outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, checknans=False))
-
+        
             if verbose:
                  print(outputs)
-
-    return outputs 
+    return outputs  
 
 
 # # Playing with multiprocessing/data collection
@@ -284,7 +279,7 @@ for name,_ in sim_results.items():
 
 # write to file 
 stats = {"system": problem, "sampling": dataset, "dataset": data, "beta": system.target_beta, "args": params, "sim_results": sim_results}
-filename = savedir + problem + "_" + dataset + "_" + note + ".npy"
+filename = savedir + "/" + problem + "_" + dataset + "_" + note + ".npy"
 np.save(filename, stats)
 
 
