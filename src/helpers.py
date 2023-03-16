@@ -5,7 +5,9 @@ from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 import scipy.interpolate as scinterp
 import scipy.spatial
-import model_systems as model_systems
+import sys
+sys.path.append("..")
+from . import model_systems as model_systems
 ##############################################################
 # Functions helping with committor error, plotting committor, etc.
 ##############################################################
@@ -443,8 +445,6 @@ def epsilon_net(data, ϵ):
     return ϵ_net, data[:,ϵ_net]
 
 def twowell_potential(x): return model_systems.twowell_potential(x)
-
-
 
 def twowell_density(x): return np.exp(-twowellbeta*twowell_potential(x))/twowellZ
 
