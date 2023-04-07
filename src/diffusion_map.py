@@ -114,7 +114,7 @@ class DiffusionMap(object):
         K = self._compute_knn_sq_dists(data)
 
         # Construct kernel from data matrix
-        K.data = np.exp(-K.data / (2*self.epsilon))
+        K.data = np.exp(-K.data / (self.epsilon))
 
         # Symmetrizing the kernel due to KNN making a non-symmetric kernel  
         K = 0.5*(K + K.T)
