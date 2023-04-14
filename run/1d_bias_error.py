@@ -41,11 +41,13 @@ import datetime
 parser = argparse.ArgumentParser()
 parser.add_argument("--sample", type=str, help="type of sampling density", default="uniform")
 parser.add_argument("--func", type=str, help="Function whose Lf(0) we shall approx", default="committor")
+parser.add_argument("--parallel", type=bool, help="Flag to compute in parallel or not", default=False)
 args = parser.parse_args()
 
 # set regime 
 sampling = args.sample
 func = args.func
+parallel = args.parallel
 
 # set up params
 beta = 1
@@ -104,22 +106,29 @@ def task(t, regime="uniform"):
 
 if sampling=="uniform":
     # set up info 
-    epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+    epsilons = np.linspace(0.03, 0.06, 10)  # actual sim 
     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
     Ns_uniform = epsilons**(-3)
     epsilons_range = len(epsilons)
-    # ntrials = 12 # actual sim 
-    ntrials = 1    # trial params for debug 
+    ntrials = 12 # actual sim 
+    # ntrials = 1    # trial params for debug 
     trial_ids = np.linspace(1,ntrials,ntrials)
     Lcommittor_uniform_TMD = np.zeros((epsilons_range, ntrials))
     
-    for i in tqdm.tqdm(range(epsilons_range)):
-        print("Starting new epsilon...")
-        ϵ = epsilons[i]
-        def task_sub(x): return task([ϵ,x], regime="uniform")
-        with multiprocess.Pool(2) as pool: 
-            result = pool.map(task_sub, list(trial_ids))
-        Lcommittor_uniform_TMD[i,:] = np.array(result)
+    if parallel:
+        for i in tqdm.tqdm(range(epsilons_range)):
+            print("Starting new epsilon...")
+            ϵ = epsilons[i]
+            def task_sub(x): return task([ϵ,x], regime="uniform")
+            with multiprocess.Pool(2) as pool: 
+                result = pool.map(task_sub, list(trial_ids))
+            Lcommittor_uniform_TMD[i,:] = np.array(result)
+    else:
+        for i in tqdm.tqdm(range(epsilons_range)):
+            ϵ = epsilons[i]
+            def task_sub(x): return task([ϵ,x], regime="uniform")
+            for j in tqdm.tqdm(range(ntrials)):
+                Lcommittor_uniform_TMD[i,j] = task_sub(trial_ids[j])
 
     # save sim 
     filename = sampling + '_' + func + '_' + str(datetime.datetime.now())
