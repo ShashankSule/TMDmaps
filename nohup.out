@@ -1,3 +1,0 @@
-usage: 1d_bias_error.py [-h] [--sample SAMPLE] [--func FUNC]
-1d_bias_error.py: error: unrecognized arguments: --sampleg uniform
-  0%|          | 0/10 [00:00<?, ?it/s]Starting new epsilon...
