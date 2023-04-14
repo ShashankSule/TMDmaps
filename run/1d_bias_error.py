@@ -108,8 +108,8 @@ if sampling=="uniform":
     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
     Ns_uniform = epsilons**(-3)
     epsilons_range = len(epsilons)
-    ntrials = 12 # actual sim 
-    # ntrials = 3    # trial params for debug 
+    # ntrials = 12 # actual sim 
+    ntrials = 1    # trial params for debug 
     trial_ids = np.linspace(1,ntrials,ntrials)
     Lcommittor_uniform_TMD = np.zeros((epsilons_range, ntrials))
     
