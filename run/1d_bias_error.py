@@ -104,7 +104,7 @@ def task(t, regime="uniform"):
 
 if sampling=="uniform":
     # set up info 
-    epsilons = np.linspace(0.03, 0.06, 10)  # actual sim 
+    epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
     Ns_uniform = epsilons**(-3)
     epsilons_range = len(epsilons)
