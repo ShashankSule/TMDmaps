@@ -117,7 +117,7 @@ if sampling=="uniform":
         print("Starting new epsilon...")
         ϵ = epsilons[i]
         def task_sub(x): return task([ϵ,x], regime="uniform")
-        with multiprocess.Pool(multiprocess.cpu_count()) as pool: 
+        with multiprocess.Pool(2) as pool: 
             result = pool.map(task_sub, list(trial_ids))
         Lcommittor_uniform_TMD[i,:] = np.array(result)
 
