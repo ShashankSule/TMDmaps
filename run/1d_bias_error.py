@@ -133,6 +133,7 @@ Lpointwise_errors_TMD = np.zeros((epsilons_range, ntrials))
 
 # now compute! 
 if parallel:
+    print("in parallel mode!")
     for i in tqdm.tqdm(range(epsilons_range)):
         print("Starting new epsilon...")
         ϵ = epsilons[i]
