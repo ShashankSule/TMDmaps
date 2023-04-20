@@ -112,7 +112,7 @@ def task(t, regime="uniform", func="committor"):
         Lf_atzero_TMD = L[-1,:]@F
         ans = Lf_atzero_TMD[0] - Lf(0.0)
     
-    print("Got result!")
+    # print("Got result!")
     return ans
 
 if sample=="uniform":
@@ -120,8 +120,8 @@ if sample=="uniform":
     epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
 else: 
-    # epsilons = np.linspace(0.14, 0.18, 10) # actual sim
-    epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
+    epsilons = np.linspace(0.14, 0.18, 10) # actual sim
+    # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
     
 
 
