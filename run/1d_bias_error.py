@@ -19,6 +19,7 @@ import scipy.io
 import time 
 from mpl_toolkits.mplot3d import axes3d
 import argparse
+import scipy.sparse as sps
 
 # parallelization modules 
 from math import nan
@@ -76,6 +77,45 @@ def committor(x):
     else: 
         return (1/Z_committor)*scint.quad(lambda y: np.exp(beta*potential(y)), -0.9,x)[0]
 
+def construct_L(epsilon, target_measure, K, inds):
+        r""" Construct the generator approximation corresponding to input data
+        
+        Parameters
+        ----------
+        data: array (num features, num samples)
+        
+        """  
+
+        N = K.shape[-1]
+        
+        
+        q = np.array(K.sum(axis=1)).ravel()
+        q_inv = np.power(q, -1) 
+        Q_inv = sps.spdiags(q_inv, 0, N, N)
+
+        # Multiply by target measure and right-normalize
+        pi = np.power(target_measure, 0.5) 
+        Pi = sps.spdiags(pi, 0, N, N)
+        Q_inv = Q_inv.dot(Pi)
+        K_rnorm = K.dot(Q_inv)
+        
+        # reindex based on specification
+        K_rnorm = K_rnorm[:,inds][inds,:]
+        N = K_rnorm.shape[-1]
+        
+        print("new N: " + str(N))
+        
+        # Make left normalizing vector 
+        q = np.array(K_rnorm.sum(axis=1)).ravel()
+        q_alpha = np.power(q, -1)
+        D_alpha = sps.spdiags(q_alpha, 0, N, N)
+        P = D_alpha.dot(K_rnorm)
+
+        # Transform Markov Matrix P to get discrete generator L 
+        L = (P - sps.eye(N, N))/epsilon
+
+        return L
+
 def task(t, regime="uniform", func="committor"):
     # ϵ_uniform = epsilons_uniform[i]
     np.random.seed() 
@@ -83,8 +123,9 @@ def task(t, regime="uniform", func="committor"):
     
     # sample based on regime 
     if regime=="uniform":
-        N = int(ϵ**(-3))
-        data = np.random.uniform(-2.0,2.0,N+1).reshape(N+1,d)
+        N = int(1.33*(ϵ**(-3)))  # turn on only if you intend to kick data out 
+        # N = int(ϵ**(-3))
+        data = np.random.uniform(-4.0,4.0,N+1).reshape(N+1,d)
     else:
         N = int(ϵ**(-5))
         data = np.random.randn(int(N+1)).reshape(N+1,d)
@@ -100,7 +141,15 @@ def task(t, regime="uniform", func="committor"):
     target_dmap.construct_generator(data.T)
     # print("Got kernel!")
     K = target_dmap.get_kernel()
-    L = target_dmap.get_generator()
+    
+    # take care of boundary effect for uniform 
+    if regime=="uniform":
+        inds = np.where(np.abs(data) <= 3)[0]
+        # L_uniform = target_dmap_uniform.get_generator() 
+        L = construct_L(ϵ, target_measure, K, inds) # get generator only constructed on sample points 
+        data = data[inds]
+    else: 
+        L = target_dmap.get_generator()
 
     # approx. based on function  
     if func=="committor":
@@ -112,13 +161,13 @@ def task(t, regime="uniform", func="committor"):
         Lf_atzero_TMD = L[-1,:]@F
         ans = Lf_atzero_TMD[0] - Lf(0.0)
     
-    # print("Got result!")
+    print("Result = ", ans)
     return ans
 
 if sample=="uniform":
     # set up info 
-    epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
-    # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+    # epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+    epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
 else: 
     epsilons = np.linspace(0.14, 0.18, 10) # actual sim
     # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
@@ -126,8 +175,8 @@ else:
 
 
 epsilons_range = len(epsilons)
-ntrials = 12 # actual sim 
-# ntrials = 1    # trial params for debug 
+# ntrials = 12 # actual sim 
+ntrials = 1    # trial params for debug 
 trial_ids = np.linspace(1,ntrials,ntrials)
 Lpointwise_errors_TMD = np.zeros((epsilons_range, ntrials))
 
