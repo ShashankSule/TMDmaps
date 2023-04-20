@@ -67,12 +67,12 @@ def mu(x): return (1/Z)*np.exp(-beta*potential(x))
 
 def f(x): return np.sin(2*np.pi*x)
 def Lf(x): return -4*(np.pi**2)*np.sin(2*np.pi*x) - beta*4*x*(x**2-1)*(2*np.pi*np.cos(2*np.pi*x))
-Z_committor = scint.quad(lambda x: np.exp(beta*potential(x)), -0.9,0.9)[0]
+Z_committor = scint.quad(lambda x: np.exp(beta*potential(x)), -1.9,1.9)[0]
 
 def committor(x):
-    if x < -0.9: 
+    if x < -1.9: 
         return 0.0
-    elif x > 0.9:
+    elif x > 1.9:
         return 1.0
     else: 
         return (1/Z_committor)*scint.quad(lambda y: np.exp(beta*potential(y)), -0.9,x)[0]
@@ -166,8 +166,8 @@ def task(t, regime="uniform", func="committor"):
 
 if sample=="uniform":
     # set up info 
-    # epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
-    epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+    epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+    # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
 else: 
     epsilons = np.linspace(0.14, 0.18, 10) # actual sim
     # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
@@ -175,8 +175,8 @@ else:
 
 
 epsilons_range = len(epsilons)
-# ntrials = 12 # actual sim 
-ntrials = 1    # trial params for debug 
+ntrials = 12 # actual sim 
+# ntrials = 1    # trial params for debug 
 trial_ids = np.linspace(1,ntrials,ntrials)
 Lpointwise_errors_TMD = np.zeros((epsilons_range, ntrials))
 
