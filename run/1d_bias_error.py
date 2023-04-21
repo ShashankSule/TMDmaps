@@ -103,7 +103,7 @@ def construct_L(epsilon, target_measure, K, inds):
         K_rnorm = K_rnorm[:,inds][inds,:]
         N = K_rnorm.shape[-1]
         
-        print("new N: " + str(N))
+        # print("new N: " + str(N))
         
         # Make left normalizing vector 
         q = np.array(K_rnorm.sum(axis=1)).ravel()
@@ -161,7 +161,7 @@ def task(t, regime="uniform", func="committor"):
         Lf_atzero_TMD = L[-1,:]@F
         ans = Lf_atzero_TMD[0] - Lf(0.0)
     
-    print("Result = ", ans)
+    # print("Result = ", ans)
     return ans
 
 if sample=="uniform":
