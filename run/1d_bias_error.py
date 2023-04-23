@@ -49,7 +49,7 @@ args = parser.parse_args()
 # set regime 
 sample = args.sample
 func = args.func
-parallel = args.parallel
+parallel = bool(args.parallel)
 note = args.note
 
 # set up params
@@ -170,16 +170,16 @@ if sample=="uniform":
     # set up info 
     # epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
-    epsilons = 2.0**np.linspace(-16,2,40)
+    epsilons = 2.0**np.linspace(-16,4,40)
 else: 
     # epsilons = np.linspace(0.14, 0.18, 10) # actual sim
     # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
-    epsilons = 2.0**np.linspace(-16,2,40)
+    epsilons = 2.0**np.linspace(-16,4,40)
     
 
 
 epsilons_range = len(epsilons)
-ntrials = 12 # actual sim 
+ntrials = 30 # actual sim 
 # ntrials = 1    # trial params for debug 
 trial_ids = np.linspace(1,ntrials,ntrials)
 Lpointwise_errors_TMD = np.zeros((epsilons_range, ntrials))
@@ -191,7 +191,7 @@ if parallel:
         print("Starting new epsilon...")
         ϵ = epsilons[i]
         def task_sub(x): return task([ϵ,x], regime=sample,func=func)
-        with multiprocess.Pool(2) as pool: 
+        with multiprocess.Pool(multiprocess.cpu_count()) as pool: 
             result = pool.map(task_sub, list(trial_ids))
         Lpointwise_errors_TMD[i,:] = np.array(result)
 else:
