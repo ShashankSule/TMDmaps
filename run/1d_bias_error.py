@@ -123,11 +123,13 @@ def task(t, regime="uniform", func="committor"):
     
     # sample based on regime 
     if regime=="uniform":
-        N = int(1.33*(ϵ**(-3)))  # turn on only if you intend to kick data out 
+        # N = int(1.33*(ϵ**(-3)))  # turn on only if you intend to kick data out 
         # N = int(ϵ**(-3))
+        N = int(1.33*1e4) # uncomment if you want to sweep fixed N 
         data = np.random.uniform(-4.0,4.0,N+1).reshape(N+1,d)
     else:
-        N = int(ϵ**(-5))
+        # N = int(ϵ**(-5))
+        N = int(1e4) # uncomment if you want to sweep fixed n 
         data = np.random.randn(int(N+1)).reshape(N+1,d)
     
     data[N,0] = 0.0
@@ -166,11 +168,13 @@ def task(t, regime="uniform", func="committor"):
 
 if sample=="uniform":
     # set up info 
-    epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+    # epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+    epsilons = 2.0**np.linspace(-16,2,40)
 else: 
-    epsilons = np.linspace(0.14, 0.18, 10) # actual sim
+    # epsilons = np.linspace(0.14, 0.18, 10) # actual sim
     # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
+    epsilons = 2.0**np.linspace(-16,2,40)
     
 
 
