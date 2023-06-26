@@ -56,83 +56,66 @@ note = args.note
 beta = 1
 d = 1
 def potential(x): 
-    return (x**2 - 1)**2 
+    return (4*(np.cos(x/2))**2 - 3/2)**2
 
 def drift(x): 
-    return 4*x*(x**2 - 1)
+    return -4*np.sin(x/2)*np.cos(x/2)*(8*(np.cos(x/2))**2 - 3)
 
-Z = scint.quad(lambda x: np.exp(-beta*potential(x)), -50, 50)[0]
+Z = scint.quad(lambda x: np.exp(-beta*potential(x)), 0, 2*np.pi)[0]
 
 def mu(x): return (1/Z)*np.exp(-beta*potential(x))
 
-def f(x): return np.sin(2*np.pi*x)
-def Lf(x): return -4*(np.pi**2)*np.sin(2*np.pi*x) - beta*4*x*(x**2-1)*(2*np.pi*np.cos(2*np.pi*x))
-Z_committor = scint.quad(lambda x: np.exp(beta*potential(x)), -1.9,1.9)[0]
+# define theta, r
+
+theta_2 = 2*np.arccos(-(np.sqrt(3/2)/2))
+theta_1 = 2*np.arccos((np.sqrt(3/2)/2))
+r = 0.5
+
+# define f 
+def f(x): return np.sin(x)
+def Lf(x): return -np.sin(x) - beta*drift(x)*np.cos(x)
+
+# define committor 
+Z_committor_12 = scint.quad(lambda x: np.exp(beta*potential(x)), theta_1+r,theta_2-r)[0]
+Z_committor_21 = scint.quad(lambda x: np.exp(beta*potential(x)), theta_2+r, 2*np.pi)[0] + \
+                 scint.quad(lambda x: np.exp(beta*potential(x)), 0, theta_1-r)[0]
 
 def committor(x):
-    if x < -1.9: 
+    # x = 2*np.pi*(x%1.0) # rescale to [0,2pi] interval 
+    if 0.0 <= x < theta_1 - r: 
+        committor = (1/Z_committor_21)*scint.quad(lambda y: np.exp(beta*potential(y)), x, theta_1 - r)[0]
+        return committor 
+    elif theta_1-r <= x < theta_1+r:
         return 0.0
-    elif x > 1.9:
+    elif theta_1+r <= x < theta_2-r: 
+        committor = (1/Z_committor_12)*scint.quad(lambda y: np.exp(beta*potential(y)), theta_1 + r, x)[0]
+        return committor 
+    elif theta_2-r <= x < theta_2+r: 
         return 1.0
     else: 
-        return (1/Z_committor)*scint.quad(lambda y: np.exp(beta*potential(y)), -0.9,x)[0]
+        committor = (1/Z_committor_21)*scint.quad(lambda x: np.exp(beta*potential(x)), 0, theta_1-r)[0] + \
+                    (1/Z_committor_21)*scint.quad(lambda y: np.exp(beta*potential(y)), x, 2*np.pi)[0]
+        return committor 
 
-def construct_L(epsilon, target_measure, K, inds):
-        r""" Construct the generator approximation corresponding to input data
-        
-        Parameters
-        ----------
-        data: array (num features, num samples)
-        
-        """  
-
-        N = K.shape[-1]
-        
-        
-        q = np.array(K.sum(axis=1)).ravel()
-        q_inv = np.power(q, -1) 
-        Q_inv = sps.spdiags(q_inv, 0, N, N)
-
-        # Multiply by target measure and right-normalize
-        pi = np.power(target_measure, 0.5) 
-        Pi = sps.spdiags(pi, 0, N, N)
-        Q_inv = Q_inv.dot(Pi)
-        K_rnorm = K.dot(Q_inv)
-        
-        # reindex based on specification
-        K_rnorm = K_rnorm[:,inds][inds,:]
-        N = K_rnorm.shape[-1]
-        
-        # print("new N: " + str(N))
-        
-        # Make left normalizing vector 
-        q = np.array(K_rnorm.sum(axis=1)).ravel()
-        q_alpha = np.power(q, -1)
-        D_alpha = sps.spdiags(q_alpha, 0, N, N)
-        P = D_alpha.dot(K_rnorm)
-
-        # Transform Markov Matrix P to get discrete generator L 
-        L = (P - sps.eye(N, N))/epsilon
-
-        return L
+# set up sweep 
 
 def task(t, regime="uniform", func="committor"):
     # ϵ_uniform = epsilons_uniform[i]
     np.random.seed() 
     ϵ, _  = t
+    N = int(ϵ**(-3))
+    # print(N)
     
-    # sample based on regime 
     if regime=="uniform":
-        # N = int(1.33*(ϵ**(-3)))  # turn on only if you intend to kick data out 
-        # N = int(ϵ**(-3))
-        N = int(1.33*1e4) # uncomment if you want to sweep fixed N 
-        data = np.random.uniform(-4.0,4.0,N+1).reshape(N+1,d)
+        data = np.random.uniform(0.0,2*np.pi,N+1).reshape(N+1,d)        
     else:
-        # N = int(ϵ**(-5))
-        N = int(1e4) # uncomment if you want to sweep fixed n 
-        data = np.random.randn(int(N+1)).reshape(N+1,d)
-    
-    data[N,0] = 0.0
+        sig = 0.1
+        data = 0.5 + sig*np.random.randn(int(N+1)).reshape(N+1,d) # p = biased[N]
+        data = 2*np.pi*(np.abs(data) % 1.0) 
+        
+    data[N,0] = np.pi
+    data_embedded = np.array([np.cos(data), np.sin(data)])[:,:,0].T
+
     target_measure = np.zeros(N+1)
 
     for i in range(N+1):
@@ -140,18 +123,10 @@ def task(t, regime="uniform", func="committor"):
 
     target_dmap = diffusion_map.TargetMeasureDiffusionMap(epsilon=ϵ, n_neigh=int(N), \
                                                               target_measure=target_measure)
-    target_dmap.construct_generator(data.T)
+    target_dmap.construct_generator(data_embedded.T)
     # print("Got kernel!")
     K = target_dmap.get_kernel()
-    
-    # take care of boundary effect for uniform 
-    if regime=="uniform":
-        inds = np.where(np.abs(data) <= 3)[0]
-        # L_uniform = target_dmap_uniform.get_generator() 
-        L = construct_L(ϵ, target_measure, K, inds) # get generator only constructed on sample points 
-        data = data[inds]
-    else: 
-        L = target_dmap.get_generator()
+    L = target_dmap.get_generator() 
 
     # approx. based on function  
     if func=="committor":
