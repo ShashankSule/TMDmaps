@@ -152,14 +152,14 @@ def task(t, regime="uniform", func="committor"):
 #     # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
 #     # epsilons = 2.0**np.linspace(-16,4,40)
 
-# epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
-epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+# epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
 # epsilons = 2.0**np.linspace(-16,4,40)
 
 
 epsilons_range = len(epsilons)
-# ntrials = 30 # actual sim 
-ntrials = 3    # trial params for debug 
+ntrials = 30 # actual sim 
+# ntrials = 3    # trial params for debug 
 trial_ids = np.linspace(1,ntrials,ntrials)
 Lpointwise_errors_TMD = np.zeros((epsilons_range, ntrials))
 

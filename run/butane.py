@@ -9,6 +9,7 @@ import datetime
 # import copy
 # import sys 
 # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
+import argparse
 
 def main():
 
@@ -550,13 +551,13 @@ def ratecomputer(q,dihedrals,epsilon,C):
     return rate, escape_rate
 
 
-def simulate_rate(): 
-    epsilons = np.linspace(0.0009,0.0069,1)
+def simulate_rate(flag=True): 
+    epsilons = np.linspace(0.0009,0.0049,41)
     trials = [] 
     print("Starting trials...")
     for epsilon in epsilons:
         print(f"epsilon = {epsilon}")
-        soln = rate(epsilon,True)
+        soln = rate(epsilon,flag)
         print(soln)
         trials.append(soln)
     trials = np.array(trials)
@@ -566,5 +567,9 @@ def simulate_rate():
     print("Save finished!")
 
 if __name__ == '__main__':
-    simulate_rate()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--flag', default=False, action=argparse.BooleanOptionalAction)
+    args = parser.parse_args()
+    flag = args.flag
+    simulate_rate(True)
 
