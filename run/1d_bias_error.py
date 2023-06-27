@@ -42,14 +42,15 @@ import datetime
 parser = argparse.ArgumentParser()
 parser.add_argument("--sample", type=str, help="type of sampling density", default="uniform")
 parser.add_argument("--func", type=str, help="Function whose Lf(0) we shall approx", default="committor")
-parser.add_argument("--parallel", type=bool, help="Flag to compute in parallel or not", default=False)
+# parser.add_argument("--parallel", type=bool, help="Flag to compute in parallel or not", default=False)
+parser.add_argument('--parallel', default=False, action=argparse.BooleanOptionalAction)
 parser.add_argument("--note", type=str, help="Any additional notes", default="")
 args = parser.parse_args()
 
 # set regime 
 sample = args.sample
 func = args.func
-parallel = bool(args.parallel)
+parallel = args.parallel
 note = args.note
 
 # set up params
@@ -83,19 +84,19 @@ Z_committor_21 = scint.quad(lambda x: np.exp(beta*potential(x)), theta_2+r, 2*np
 def committor(x):
     # x = 2*np.pi*(x%1.0) # rescale to [0,2pi] interval 
     if 0.0 <= x < theta_1 - r: 
-        committor = (1/Z_committor_21)*scint.quad(lambda y: np.exp(beta*potential(y)), x, theta_1 - r)[0]
-        return committor 
+        val = (1/Z_committor_21)*scint.quad(lambda y: np.exp(beta*potential(y)), x, theta_1 - r)[0]
+        return val 
     elif theta_1-r <= x < theta_1+r:
         return 0.0
     elif theta_1+r <= x < theta_2-r: 
-        committor = (1/Z_committor_12)*scint.quad(lambda y: np.exp(beta*potential(y)), theta_1 + r, x)[0]
-        return committor 
+        val = (1/Z_committor_12)*scint.quad(lambda y: np.exp(beta*potential(y)), theta_1 + r, x)[0]
+        return val 
     elif theta_2-r <= x < theta_2+r: 
         return 1.0
     else: 
-        committor = (1/Z_committor_21)*scint.quad(lambda x: np.exp(beta*potential(x)), 0, theta_1-r)[0] + \
+        val = (1/Z_committor_21)*scint.quad(lambda x: np.exp(beta*potential(x)), 0, theta_1-r)[0] + \
                     (1/Z_committor_21)*scint.quad(lambda y: np.exp(beta*potential(y)), x, 2*np.pi)[0]
-        return committor 
+        return val 
 
 # set up sweep 
 
@@ -141,21 +142,24 @@ def task(t, regime="uniform", func="committor"):
     # print("Result = ", ans)
     return ans
 
-if sample=="uniform":
-    # set up info 
-    # epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
-    # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
-    epsilons = 2.0**np.linspace(-16,4,40)
-else: 
-    # epsilons = np.linspace(0.14, 0.18, 10) # actual sim
-    # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
-    epsilons = 2.0**np.linspace(-16,4,40)
-    
+# if sample=="uniform":
+#     # set up info 
+#     # epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+#     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+#     # epsilons = 2.0**np.linspace(-16,4,40)
+# else: 
+#     # epsilons = np.linspace(0.14, 0.18, 10) # actual sim
+#     # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
+#     # epsilons = 2.0**np.linspace(-16,4,40)
+
+# epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+# epsilons = 2.0**np.linspace(-16,4,40)
 
 
 epsilons_range = len(epsilons)
-ntrials = 30 # actual sim 
-# ntrials = 1    # trial params for debug 
+# ntrials = 30 # actual sim 
+ntrials = 3    # trial params for debug 
 trial_ids = np.linspace(1,ntrials,ntrials)
 Lpointwise_errors_TMD = np.zeros((epsilons_range, ntrials))
 
