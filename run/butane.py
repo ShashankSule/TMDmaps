@@ -571,5 +571,5 @@ if __name__ == '__main__':
     parser.add_argument('--flag', default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     flag = args.flag
-    simulate_rate(True)
+    simulate_rate(flag)
 
