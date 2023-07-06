@@ -139,7 +139,7 @@ def task(t, regime="uniform", func="committor"):
         Lf_atzero_TMD = L[-1,:]@F
         ans = Lf_atzero_TMD[0] - Lf(0.0)
     
-    print("Result = ", ans)
+    # print("Result = ", ans)
     return ans
 
 # if sample=="uniform":
