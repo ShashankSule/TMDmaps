@@ -108,7 +108,8 @@ def task(t, regime="uniform", func="committor"):
     # print(N)
     
     if regime=="uniform":
-        data = np.random.uniform(0.0,2*np.pi,N+1).reshape(N+1,d)        
+        data = np.random.uniform(0.0,2*np.pi,N+1).reshape(N+1,d)
+        ϵ = 2.50*ϵ     
     else:
         sig = 0.1
         data = 0.6 + sig*np.random.randn(int(N+1)).reshape(N+1,d) # p = biased[N]
@@ -142,18 +143,19 @@ def task(t, regime="uniform", func="committor"):
     # print("Result = ", ans)
     return ans
 
-if sample=="uniform":
-    # set up info 
-    epsilons = 2.50*np.linspace(0.023,0.033,10)  # actual sim 
-    # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
-    # epsilons = 2.0**np.linspace(-16,4,40)
-else: 
-    epsilons = np.linspace(0.023,0.033,10) # actual sim
-    # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
-    # epsilons = 2.0**np.linspace(-16,4,40)
+# if sample=="uniform":
+#     # set up info 
+#     epsilons = np.linspace(0.023,0.033,10)  # actual sim 
+#     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+#     # epsilons = 2.0**np.linspace(-16,4,40)
+# else: 
+#     epsilons = np.linspace(0.023,0.033,10) # actual sim
+#     # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
+#     # epsilons = 2.0**np.linspace(-16,4,40)
 
-# epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+# epsilons = np.linspace(0.04, 0.06, 10)  # actual sim for N = 1e^-3 
 # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+epsilons = np.linspace(0.023,0.033,10)
 # epsilons = 2.0**np.linspace(-16,4,40)
 
 
