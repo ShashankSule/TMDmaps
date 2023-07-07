@@ -70,7 +70,7 @@ def mu(x): return (1/Z)*np.exp(-beta*potential(x))
 
 theta_2 = 2*np.arccos(-(np.sqrt(3/2)/2))
 theta_1 = 2*np.arccos((np.sqrt(3/2)/2))
-r = 0.5
+r = 0.1
 
 # define f 
 def f(x): return np.sin(x)
@@ -104,14 +104,14 @@ def task(t, regime="uniform", func="committor"):
     # ϵ_uniform = epsilons_uniform[i]
     np.random.seed() 
     ϵ, _  = t
-    N = int(ϵ**(-3))
+    N = int(ϵ**(-(5/2)))
     # print(N)
     
     if regime=="uniform":
         data = np.random.uniform(0.0,2*np.pi,N+1).reshape(N+1,d)        
     else:
         sig = 0.1
-        data = 0.5 + sig*np.random.randn(int(N+1)).reshape(N+1,d) # p = biased[N]
+        data = 0.6 + sig*np.random.randn(int(N+1)).reshape(N+1,d) # p = biased[N]
         data = 2*np.pi*(np.abs(data) % 1.0) 
         
     data[N,0] = np.pi
@@ -142,17 +142,17 @@ def task(t, regime="uniform", func="committor"):
     # print("Result = ", ans)
     return ans
 
-# if sample=="uniform":
-#     # set up info 
-#     # epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
-#     # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
-#     # epsilons = 2.0**np.linspace(-16,4,40)
-# else: 
-#     # epsilons = np.linspace(0.14, 0.18, 10) # actual sim
-#     # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
-#     # epsilons = 2.0**np.linspace(-16,4,40)
+if sample=="uniform":
+    # set up info 
+    epsilons = 2.50*np.linspace(0.023,0.033,10)  # actual sim 
+    # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
+    # epsilons = 2.0**np.linspace(-16,4,40)
+else: 
+    epsilons = np.linspace(0.023,0.033,10) # actual sim
+    # epsilons = np.linspace(0.16,0.17,2) # trial params for debug  
+    # epsilons = 2.0**np.linspace(-16,4,40)
 
-epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
+# epsilons = np.linspace(0.04, 0.06, 10)  # actual sim 
 # epsilons = np.linspace(0.06, 0.07, 2)     # trial params for debug 
 # epsilons = 2.0**np.linspace(-16,4,40)
 
