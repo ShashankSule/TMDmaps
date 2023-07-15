@@ -219,8 +219,8 @@ def uniformnet(scaling):
 # set up post-processed datasets 
 
 num = multiprocess.cpu_count()
-# deltas = list(np.linspace(1e-6, 1e-1, 10))
-deltas = [0.02, 0.04]
+deltas = list(np.linspace(1e-6, 1e-1, 10))
+# deltas = [0.02, 0.04]
 if dataset == "uniform":
     print("Special processing for uniform data...")
     deltas = list(np.linspace(0.02, 0.05, 10))
@@ -233,8 +233,8 @@ else:
 
 
 # set up all the other parameters of the system 
-epsilons = [2**(-5), 2**(-6), 2**(-7)]
-# epsilons = list(2.0**np.arange(-16, 2, 0.25))
+# epsilons = [2**(-5), 2**(-6), 2**(-7)]
+epsilons = list(2.0**np.arange(-16, 2, 0.25))
 vbdry = [10]
 n_neigh = [1024]
 args = list(itertools.product(*[epsilons, datasets, vbdry, n_neigh])) # create iterable for multiprocess
