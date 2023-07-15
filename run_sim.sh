@@ -10,6 +10,6 @@ rootpath=$(pwd)
 fempath=$rootpath/data/Twowell/ground_data/DistmeshTwowell_1.mat 
 savepath=$rootpath/data/Twowell/error_data 
 
-for var in uniform 
-    do python3 src/error_analysis.py --sys twowell --dset $var --tru $fempath --save $savepath 
+for var in gibbs metadynamics uniform 
+    do python3 run/error_analysis.py --sys twowell --dset $var --tru $fempath --save $savepath 
 done

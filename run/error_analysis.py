@@ -235,7 +235,8 @@ else:
 # set up all the other parameters of the system 
 # epsilons = [2**(-5), 2**(-6), 2**(-7)]
 epsilons = list(2.0**np.arange(-16, 2, 0.25))
-vbdry = [10]
+vbdry = [1.0] # twowell
+# vbdry = [10]
 n_neigh = [1024]
 args = list(itertools.product(*[epsilons, datasets, vbdry, n_neigh])) # create iterable for multiprocess
 params = {"epsilons": epsilons, "deltas": deltas, "vbry": vbdry, "n_neigh": n_neigh}
