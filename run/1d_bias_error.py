@@ -104,12 +104,13 @@ def task(t, regime="uniform", func="committor"):
     # ϵ_uniform = epsilons_uniform[i]
     np.random.seed() 
     ϵ, _  = t
-    N = int(ϵ**(-(5/2)))
+    n = scipy.optimize.root_scalar(lambda x: x/np.log10(x) - 0.25*(ϵ**(-5/2)), bracket=[1e3, 4*1e4])
+    N = int(n.root)
     # print(N)
     
     if regime=="uniform":
         data = np.random.uniform(0.0,2*np.pi,N+1).reshape(N+1,d)
-        ϵ = 2.50*ϵ     
+        # ϵ = 2.50*ϵ     
     else:
         sig = 0.1
         data = 0.6 + sig*np.random.randn(int(N+1)).reshape(N+1,d) # p = biased[N]
