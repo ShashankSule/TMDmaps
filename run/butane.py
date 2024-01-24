@@ -96,10 +96,11 @@ def main():
     C[B] = False
 
     # Run diffusion map
-    epsilon = 0.0039 # for metad + deltanet
+    # epsilon = 0.0039 # for metad + deltanet
     # epsilon = 0.0016 # for metad
+    epsilon = 0.1
      # for metad 
-    DENSE = True 
+    DENSE = False 
     save = False  
     load = False  
 
@@ -121,8 +122,8 @@ def main():
             n_neighbors = 256
             print("sparse dmaps!")
             [stationary, K, L] = create_laplacian_sparse(new_data, target_measure, epsilon=epsilon, n_neighbors=n_neighbors)
-            q = solve_committor_sparse(L, B, C, num_samples)
-            # diffcoords, eigvecs, eigvals = compute_spectrum_sparse(L, stationary, num_eigvecs=4)
+            # q = solve_committor_sparse(L, B, C, num_samples)
+            diffcoords, eigvecs, eigvals = compute_spectrum_sparse(L, stationary, num_eigvecs=4)
             #fric = 0.01 #friction in femtoseconds
             #mass = 12.01 #mass in amus
             #rate = (1/fric)*mass*compute_rate_sparse(L, K, target_measure, q, beta=(1/kbT), effective_dim=12, epsilon=epsilon)
@@ -132,13 +133,15 @@ def main():
             #print(rho_rate)
 
     # plot committor 
-    plt.figure()
-    plt.xlabel("dihedral")
-    plt.ylabel("committor")
-    plt.scatter(dihedrals[sub_indices][C], q[C], s=0.4, c='blue')
-    plt.scatter(dihedrals[sub_indices][A], q[A], s=0.4, c='red')
-    plt.scatter(dihedrals[sub_indices][B], q[B], s=0.4, c='green')
-    plt.title(f"committor, metad + deltanet, delta = 0.15, eps={epsilon}")
+    plot_comm = False
+    if plot_comm:
+        plt.figure()
+        plt.xlabel("dihedral")
+        plt.ylabel("committor")
+        plt.scatter(dihedrals[sub_indices][C], q[C], s=0.4, c='blue')
+        plt.scatter(dihedrals[sub_indices][A], q[A], s=0.4, c='red')
+        plt.scatter(dihedrals[sub_indices][B], q[B], s=0.4, c='green')
+        plt.title(f"committor, metad + deltanet, delta = 0.15, eps={epsilon}")
 
     # save committor
     if save: 
@@ -146,7 +149,7 @@ def main():
             np.save('q.npy',{'committor': q, 'epsilon': epsilon, 'K': K, 'L': L})
 
     # compute rate 
-    compute_rate = True
+    compute_rate = False
     if compute_rate:
         # get datasampled through exp(-beta V)
         print(q.shape)
@@ -159,7 +162,7 @@ def main():
         # print(min(eigvals))
 
 
-    plot_tmdmap = False
+    plot_tmdmap = True
     if plot_tmdmap:
         plt.figure()
         plt.xlabel("dihedral")
@@ -182,10 +185,11 @@ def main():
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
         s=ax.scatter(diffcoords[:, 0], diffcoords[:, 1], diffcoords[:, 2], c=dihedrals[sub_indices], cmap='hsv', s=0.5)
-        ax.set_xlabel('eigvec1')
-        ax.set_ylabel('eigvec2')
-        ax.set_zlabel('eigvec3')
-        fig.colorbar(s)
+        ax.set_xlabel(f'$\psi_{1}$')
+        ax.set_ylabel(f'$\psi_{2}$')
+        ax.set_zlabel(f'$\psi_{3}$')
+        cbar = fig.colorbar(s, orientation="horizontal", pad=2.0)
+        # cbar.set_label("Dihedral angle", rotation=270, pad=2)
 
     plt.show() 
     return None
@@ -567,9 +571,9 @@ def simulate_rate(flag=True):
     print("Save finished!")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--flag', default=False, action=argparse.BooleanOptionalAction)
-    args = parser.parse_args()
-    flag = args.flag
-    simulate_rate(flag)
-
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--flag', default=False, action=argparse.BooleanOptionalAction)
+    # args = parser.parse_args()
+    # flag = args.flag
+    # simulate_rate(flag)
+    main()
