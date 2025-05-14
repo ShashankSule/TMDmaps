@@ -46,6 +46,9 @@ parser.add_argument("--dset", type=str, help="gibbs/metadynamics/uniform", defau
 parser.add_argument("--note", type=str, help="add note", default='')
 parser.add_argument("--tru", type=str, help="location of ground truth solution", default='')
 parser.add_argument("--save", type=str, help="where to save error data", default='')
+# parser.add_argument("--weight", type=bool, help="Compute weighted RMSE?", default=False)
+parser.add_argument('--wRMSE', action=argparse.BooleanOptionalAction, default=False, help='Use wRMSE?')
+
 args = parser.parse_args()
 
 
@@ -54,6 +57,7 @@ dataset = args.dset
 note = args.note 
 datadir = args.tru
 savedir = args.save
+weighting = args.wRMSE
 
 # first choose problem 
 # problem = "muller"
@@ -196,8 +200,15 @@ def error_data(t, \
             q_tmd_error = q_tmd[err_boolz['error_bool']]
             q_interpolant_fem_to_tmd_error = q_interpolant_fem_to_tmd[err_boolz['error_bool']].reshape(q_tmd_error.shape)
             
-            outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, checknans=False))
-        
+            if weighting: 
+                weights = target_measure[err_boolz['error_bool']]
+                weights = weights/np.sum(weights)
+            else: 
+                weights = np.ones(q_tmd_error.shape)/q_tmd_error.shape[0]
+            
+            outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, \
+                                            weights=weights, checknans=False))
+
             if verbose:
                  print(outputs)
     return outputs  

@@ -30,8 +30,11 @@ def is_in_circle(x, y, centerx=0, centery=0, rad=1.0):
     return ((x - centerx)**2 + (y-centery)**2 <= rad**2)
 
 
-def RMSerror(approx, truth, checknans=True):
-    diff = (approx - truth)**2 
+def RMSerror(approx, truth, weights=None, checknans=True):
+    if weights is not None:
+        diff = weights*(approx - truth)**2
+    else:
+        diff = (approx - truth)**2 
     if checknans:
         diff = np.delete(diff, np.where(np.isnan(diff))) 
     output = np.sqrt(np.mean(diff))
