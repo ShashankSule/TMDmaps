@@ -5,11 +5,41 @@ Github: https://github.com/DiffusionMapsAcademics/pyDiffMap/blob/master/docs/usa
 """
 import numpy as np 
 import scipy.sparse as sps 
-from scipy.linalg.lapack import clapack as cla
+# from scipy.linalg.lapack import clapack as cla  # Deprecated/unavailable in newer scipy
 from sklearn.neighbors import NearestNeighbors
 from scipy.spatial import distance as sp_dist
+import scipy.linalg as sp_linalg
+from tqdm import tqdm
+try:
+    from . import helpers as helpers
+except ImportError:
+    import helpers as helpers
 
-from . import helpers as helpers
+def periodic_restrict(x, boundary):
+    """Restricts a vector x to comply with periodic boundary conditions
+
+    Args:
+        x ([type]): [description]
+        boundary ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+
+    while (x > 0.5*boundary).any():
+        x = np.where(x > 0.5*boundary, x - boundary, x) 
+    while (x < -0.5*boundary).any(): 
+        x = np.where(x < -0.5*boundary, x + boundary, x) 
+    return x
+
+def cholesky_hack(C):
+    #Computes the (not necessarily unique) Cholesky decomp. for a symmetric positive SEMI-definite matrix, C = LL.T, returns L
+    # NOTE: this is a bit more expensive than regular cholesky, should only be used if input matrix is likely not positive definite but it is semi-definite
+
+    # C = MM^T, M^T = QR ---> MM^T = R^T R, so L = R^T
+    M = sp_linalg.sqrtm(C)
+    R = np.real(np.linalg.qr(M.T)[1])
+    return R.T
 
 class DiffusionMap(object):
     r"""
@@ -26,6 +56,7 @@ class DiffusionMap(object):
         self.pbc_dims = pbc_dims
         self.n_neigh = n_neigh
         self.density = density
+        self.flag = False
 
     def construct_generator(self, data):
         r""" Construct the generator approximation corresponding to input data
@@ -59,6 +90,7 @@ class DiffusionMap(object):
         L = (P - sps.eye(N, N))/self.epsilon
 
         self.L = L
+        self.K_rnorm = K_rnorm
         #print("switching L for P")
         return self
     
@@ -110,8 +142,10 @@ class DiffusionMap(object):
           applied to data points i, j
 
         """  
-       
-        K = self._compute_knn_sq_dists(data)
+        if not self.flag:
+            K = self._compute_knn_sq_dists(data)
+        else: 
+            K = self.sq_dists
 
         # Construct kernel from data matrix
         K.data = np.exp(-K.data / (self.epsilon))
@@ -121,8 +155,46 @@ class DiffusionMap(object):
 
         self.K = K
         return K
+    
+    def _construct_renormalized_kernel(self, data):
+        r""" Construct the renormalized kernel corresponding to input data
+        
+        Parameters
+        ----------
+        data: array (num features, num samples)
+        
+        """  
+        K = self._construct_kernel(data)
+        N = K.shape[-1]
+        print("done with kernel!")
 
-    def choose_epsilon(self, sq_dists, k=1):
+        if self.density is not None:
+            q = self.density
+        else:
+            q = np.array(K.sum(axis=1)).ravel()
+        
+        # Make right normalizing vector
+        q_alpha = np.power(q, -self.alpha) 
+        Q_alpha = sps.spdiags(q_alpha, 0, N, N)
+        K_rnorm = K.dot(Q_alpha)
+        self.K_rnorm = K_rnorm
+        return self
+
+    def max_min_epsilon(self, k_alpha = 0.25):
+        if not self.flag:
+            assert self.sq_dists is None, "Need to compute sq_dists first"
+        else: 
+            K = self.sq_dists
+        k = int(k_alpha*K.shape[0])
+        neigh = NearestNeighbors(n_neighbors=k+1,
+                                metric='precomputed')
+        neigh.fit(self.sq_dists)
+        [neigh_dist, neigh_ind] = neigh.kneighbors(self.sq_dists)
+        max_epsilon = np.max(neigh_dist[:, k])
+        min_epsilon = np.min(neigh_dist[:, 0])
+        return max_epsilon, min_epsilon, k 
+    
+    def choose_epsilon(self):
         r""" Function for automatically choosing epsilon, work in progress
 
         Parameters
@@ -133,21 +205,77 @@ class DiffusionMap(object):
         
         """
         if self.epsilon == "MAX_MIN":
-            # TODO: this is not an efficient way of organizing this
-            # If not using knn, there isn't a nearest neighbors object yet 
-            neigh = NearestNeighbors(n_neighbors=k+1,
-                                     metric='precomputed')
-            neigh.fit(sq_dists)
-            self.neigh = neigh
-
-            # pick epsilon so each kernel weight is approx. non-zero
-            [neigh_dist, neigh_ind] = self.neigh.kneighbors(sq_dists)
-            self.epsilon = np.max(neigh_dist[:, k])
+            self.epsilon, k = self.max_min_epsilon()
             print("choosing min_max epsilon with k=%d" % k) 
         
         # otherwise, keep the epsilon value chosen by the user
         #print("epsilon = %f" % self.epsilon) 
         return self
+
+    def ksums(self, data):
+        " Compute the sum of the kernel for a range of epsilon values"
+        "input: dmap: diffusion_map object, data: (num_features, num_samples) data to compute the kernel sum"
+        # first check if sq_dists is computed
+        if self.sq_dists is None:
+            self._compute_knn_sq_dists(data)
+            print("computed sq_dists!")
+        eps_max, eps_min, _ = self.max_min_epsilon()
+        eps_range = np.logspace(np.log2(0.25*eps_min), np.log2(4.0*eps_max), num=100, base=2)
+        kernel_sums = []
+        for i in tqdm(range(100)):
+            self.epsilon = eps_range[i]
+            K = -(1/self.epsilon)*self.sq_dists
+            K = K.expm1() # compute exp(K) - 1
+            kernel_sum = np.mean(K) + np.mean(np.ones(K.shape))
+            kernel_sums.append(kernel_sum)
+        return eps_range, kernel_sums
+    # Construct a log-linearly spaced range of 100 points between (0.5 * eps_min) and eps_max
+
+    def max_derivative(self, eps_range, kernel_sums): 
+        " Compute the maximum discrete derivative of the log of the kernel sum"
+        # Compute the discrete derivative of the log of the array kernel_sums
+        log_kernel_sums = np.log2(kernel_sums)
+        discrete_derivative = np.diff(log_kernel_sums)
+
+        # Find the entry with the maximum discrete derivative
+        max_derivative_index = np.argmax(discrete_derivative)
+        max_derivative_value = discrete_derivative[max_derivative_index]
+        max_eps = eps_range[max_derivative_index]
+        return max_eps, max_derivative_index, max_derivative_value, \
+            eps_range, discrete_derivative
+
+    def k_sum_test(self, data):
+        " Compute the sum of the kernel for a range of epsilon values"
+        "input: dmap: diffusion_map object, data: (num_features, num_samples) to compute the kernel sum"
+        eps_range, kernel_sums = self.ksums(data)
+        max_eps, max_derivative_index, max_derivative_value, \
+            eps_range, discrete_derivative = self.max_derivative(eps_range, kernel_sums)
+        self.epsilon = max_eps
+        return max_eps, max_derivative_index, max_derivative_value, \
+            eps_range, discrete_derivative
+    
+    def semi_group_vals(self, data):
+        if self.sq_dists is None:
+            self._compute_knn_sq_dists(data)
+            print("computed sq_dists!")
+        eps_max, eps_min, _ = self.max_min_epsilon()
+        eps_range = np.logspace(np.log2(0.25*eps_min), np.log2(4.0*eps_max), num=100, base=2)
+        semi_group_vals = []
+        for i in tqdm(range(100)):
+            self.epsilon = eps_range[i]
+            K = -(1/self.epsilon)*self.sq_dists
+            K = K.expm1()+1.0
+            semi_group_val = np.linalg.norm(K.multiply(K), K**2)
+            semi_group_vals.append(semi_group_val)
+        return eps_range, semi_group_vals
+    
+    def semi_group_test(self, data):
+        eps_range, semi_group_vals = self.semi_group_vals(data)
+        opt_eps = np.argmin(semi_group_vals)
+
+        self.epsilon = opt_eps
+        return opt_eps, eps_range, semi_group_vals
+
 
     def _construct_diffusion_coords(self, L):
         r""" Description Here
@@ -233,10 +361,11 @@ class DiffusionMap(object):
             self.neigh = neigh
             knn_sq_dists = neigh.kneighbors_graph(sq_dists, mode='distance')
         # Compute epsilon from square distance data
-        self.choose_epsilon(sq_dists)
+        # self.choose_epsilon(sq_dists)
          
         knn_sq_dists.sort_indices()
         self.sq_dists = knn_sq_dists 
+        self.flag = True
         return knn_sq_dists
    
     @staticmethod
@@ -396,7 +525,7 @@ class MahalanobisDiffusionMap(DiffusionMap):
             self.inv_chol_covs = inv_chol_covs
         else: 
             print("No capacity to compute covariances right now! Please upload some, this is defaulting to regular dmaps")
-            if data is not none:
+            if data is not None:
                 # Make a list of identity matrices
                 self.inv_chol_covs = np.ones((N,1,1)) * np.eye(dim)[np.newaxis, :] 
         return self
@@ -466,3 +595,59 @@ class TargetMeasureDiffusionMap(DiffusionMap):
 
         return self
 
+class NeumannMap(DiffusionMap): 
+    def __init__(self, alpha=0.0, epsilon=1.0, num_evecs=3, marked = False, pbc_dims=None,
+                 n_neigh=None, density=None, delta=0.5):
+        super().__init__(alpha=alpha, epsilon=epsilon,
+                         num_evecs=num_evecs, pbc_dims=pbc_dims,
+                         n_neigh=n_neigh)
+        # marked = boundary, the NMap will always be computed on the unmarked pixels 
+        if ~marked: 
+            self.marked = marked
+        else:
+            self.marked = ~marked
+        self.delta = delta
+    
+    def construct_generator(self,data,subgraph): 
+        
+        # compute map on unmarked points 
+        if ~self.marked: 
+            subgraph_inds = subgraph
+        else: 
+            subgraph_inds = ~subgraph
+        
+        # construct kernel 
+        K = self._construct_kernel(data)
+        
+        # alpha renorm 
+        D_alph_inv_vec = (K@np.ones((K.shape[1],1)).flatten())**(-self.alpha)
+        D_alph_inv = sps.diags(D_alph_inv_vec)
+        K = D_alph_inv@K@D_alph_inv
+
+
+        # construct graph laplacian
+        D = sps.diags(K@np.ones((K.shape[1],1)).flatten())
+        L = D - K
+        
+        # construct Neumann matrix 
+        B = K[~subgraph_inds, :][:, subgraph_inds] # boundary matrix 
+        delta_TS_vec = B@np.ones((B.shape[1],1)).flatten()
+        delta_TS_vec_inv = (1/delta_TS_vec) # deltaT_S matrix 
+        delta_TS_inv = sps.diags(delta_TS_vec_inv)
+        L_N = self.delta*L[subgraph_inds, :][:, subgraph_inds] - (1-self.delta)*B.T@delta_TS_inv@B # neumann laplacian 
+        T_S = D.tocsr()[subgraph_inds,:][:,subgraph_inds] # degree matrix of subgraph 
+        K_N = T_S - L_N # Neumann kernel matrix 
+        
+        # renormalize the kernel matrix
+        one_over_T_S_sqrt_vec = 1/(K_N@np.ones((K_N.shape[1],1)).flatten())**(1/2)
+        one_over_T_S_sqrt = sps.diags(one_over_T_S_sqrt_vec)
+        renormalized_K_N = one_over_T_S_sqrt@K_N@one_over_T_S_sqrt
+        T_S_sqrt_vec = (K_N@np.ones((K_N.shape[1],1)).flatten())**(1/2)
+        T_S_sqrt = sps.diags(T_S_sqrt_vec)
+        P_N = one_over_T_S_sqrt@renormalized_K_N@T_S_sqrt # transition matrix of reflecting random walk 
+        
+        generator = (P_N - sps.eye(P_N.shape[0]))/self.epsilon # generator of reflecting walk 
+        
+        self.L = generator
+        
+        return self 

@@ -6,8 +6,15 @@ import matplotlib.transforms as transforms
 import scipy.interpolate as scinterp
 import scipy.spatial
 import sys
+import scipy.sparse as sps
+from scipy.spatial.distance import cdist
+from scipy.sparse.csgraph import shortest_path
+from sklearn.neighbors import NearestNeighbors
 sys.path.append("..")
-from . import model_systems as model_systems
+try:
+    from . import model_systems as model_systems
+except ImportError:
+    import model_systems as model_systems
 ##############################################################
 # Functions helping with committor error, plotting committor, etc.
 ##############################################################
@@ -572,3 +579,73 @@ def throwing_pts_twowell(data, Vbdry):
                ('A_bool', A_bool), 
                ('B_bool', B_bool), 
                ('C_bool', C_bool)])
+
+def create_kernel_geodesic(sq_dists, n_neighbors=None, k_threshold=None):
+    """
+    Create a graph on the data using euclidean distances, then compute 
+    a kernel matrix using geodesic distances on the graph.
+    
+    Parameters:
+    -----------
+    sq_dists : array, shape (n_samples, n_samples)
+        Precomputed squared euclidean distances
+    epsilon : float
+        Kernel bandwidth parameter for geodesic distances
+    n_neighbors : int, optional
+        Number of neighbors for k-nearest neighbors graph
+        If None, uses all points (fully connected)
+    k_threshold : float, optional
+        Threshold for edge creation (points within this distance are connected)
+        If None and n_neighbors is None, uses all points
+        
+    Returns:
+    --------
+    K : array, shape (n_samples, n_samples)
+        Kernel matrix from geodesic distances
+    geodesic_dists : array, shape (n_samples, n_samples)
+        Geodesic distances on the graph
+    graph_adj : sparse matrix, shape (n_samples, n_samples)
+        Adjacency matrix of the graph (euclidean distances as edge weights)
+    """
+    n_samples = sq_dists.shape[0]
+    
+    # Use precomputed squared distances - no recomputation needed
+    euc_dists = np.sqrt(sq_dists)
+    
+ 
+    print("Computing geodesic distances...")
+    
+    if n_neighbors is not None:
+        # Use sklearn's NearestNeighbors with precomputed distance matrix
+        print("Constructing k-nearest neighbors graph from precomputed distances...")
+        neigh = NearestNeighbors(n_neighbors=n_neighbors, metric='precomputed')
+        neigh.fit(euc_dists)
+        graph_adj = neigh.kneighbors_graph(euc_dists, mode='distance')
+        # Symmetrize
+        graph_adj = 0.5 * (graph_adj + graph_adj.T)
+    elif k_threshold is not None:
+        # Connect points within threshold
+        graph_adj = sps.csr_matrix(np.where(euc_dists < k_threshold, euc_dists, 0))
+    else:
+        # Fully connected graph with euclidean distances as edge weights
+        graph_adj = sps.csr_matrix(euc_dists)
+    
+    # Compute geodesic distances (shortest paths) on the graph
+    # Use Dijkstra's algorithm
+    print(f"Graph sparsity: {issparse(graph_adj)}")
+    print("Computing shortest paths from pairwise distances...")
+    geodesic_dists = shortest_path(
+        graph_adj, 
+        method='D', 
+        directed=False,
+        return_predecessors=False
+    )
+    
+    # Handle disconnected components (set to large distance)
+    geodesic_dists[geodesic_dists == np.inf] = np.max(geodesic_dists[geodesic_dists != np.inf]) * 2
+    
+    # Create kernel from geodesic distances
+    print("Creating kernel from geodesic distances...")
+    # K = np.exp(-geodesic_dists**2 / (2.0 * epsilon))
+    
+    return geodesic_dists, graph_adj
