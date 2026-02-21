@@ -1,0 +1,8 @@
+data_file: butane_metad_deltanet_dihedrals.npz
+epsilon_min: 1.0
+epsilon_max: 1.0
+flag: true
+log_scale: true
+distance:
+  metric: euclidean
+n_epsilons: 1

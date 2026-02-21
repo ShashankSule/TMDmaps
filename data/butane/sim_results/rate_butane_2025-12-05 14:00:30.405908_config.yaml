@@ -1,0 +1,7 @@
+data_file: butane_metad_deltanet_dihedrals.npz
+epsilon_min: 0.1
+epsilon_max: 10.0
+flag: false
+log_scale: true
+date: '2025-12-05 14:00:30.417691'
+saved_filename: rate_butane_2025-12-05 14:00:30.405926

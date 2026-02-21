@@ -1,0 +1,10 @@
+data_file: butane_metad_deltanet_dihedrals.npz
+epsilon_min: 1.0
+epsilon_max: 1.0
+flag: true
+log_scale: true
+distance:
+  metric: euclidean
+n_epsilons: 1
+date: '2026-02-20 16:30:42.505298'
+saved_filename: rate_butane_2026-02-20 16:30:42.504451

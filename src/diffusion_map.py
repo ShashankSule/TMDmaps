@@ -57,6 +57,7 @@ class DiffusionMap(object):
         self.n_neigh = n_neigh
         self.density = density
         self.flag = False
+        self.sq_dists = None
 
     def construct_generator(self, data):
         r""" Construct the generator approximation corresponding to input data
@@ -145,6 +146,7 @@ class DiffusionMap(object):
         if not self.flag:
             K = self._compute_knn_sq_dists(data)
         else: 
+            print("Squared distances are precomputed")
             K = self.sq_dists
 
         # Construct kernel from data matrix
@@ -327,7 +329,7 @@ class DiffusionMap(object):
 
         Parameters
         ----------
-        data : array, (num features, num samples)
+        data : array, (num samples, num features)
             data matrix
     
         Returns
@@ -348,7 +350,7 @@ class DiffusionMap(object):
         ## Construct nearest neighbors graph, sparsify square distances
         #sq_dists = np.sum(diffs**2, axis=-1)
 
-        sq_dists = sp_dist.pdist(data.T, 'sqeuclidean')
+        sq_dists = sp_dist.pdist(data, 'sqeuclidean')
         sq_dists = sp_dist.squareform(sq_dists) 
 
         if self.n_neigh is None:
@@ -431,7 +433,7 @@ class MahalanobisDiffusionMap(DiffusionMap):
 
             Parameters
             ----------
-            data : array, (num features, num samples)
+            data : array, (num samples, num features)
                 data matrix
 
             Returns
@@ -441,7 +443,7 @@ class MahalanobisDiffusionMap(DiffusionMap):
             """
             if KDE:
                 # Construct matrix of pairwise square distances
-                diffs = data.T[np.newaxis, ...] - data.T[:, np.newaxis, ...]
+                diffs = data[np.newaxis, ...] - data[:, np.newaxis, ...]
                 if self.pbc_dims is not None:
                     # Use input pbc_dimensions for distance calculations
                     diffs = helpers.periodic_restrict(diffs, self.pbc_dims)
@@ -497,7 +499,7 @@ class MahalanobisDiffusionMap(DiffusionMap):
         bigL = np.swapaxes(bigL, 0, 1)
         
         # Create block matrix of pairwise differences
-        diffs = data.T[:, np.newaxis, ...] - data.T[np.newaxis, ...]
+        diffs = data[:, np.newaxis, ...] - data[np.newaxis, ...]
 
         if self.pbc_dims is not None: 
             diffs = helpers.periodic_restrict(diffs, self.pbc_dims)

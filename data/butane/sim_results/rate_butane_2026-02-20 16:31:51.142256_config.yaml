@@ -1,0 +1,11 @@
+data_file: butane_metad_deltanet_dihedrals.npz
+epsilon_min: 1.0
+epsilon_max: 1.0
+flag: true
+log_scale: true
+distance:
+  metric: euclidean
+  precomputed_path: /export/ssule25/TMDmaps/data/butane/dist_matrices/2026-02-20_16-30-30_79164c72/sqdists.npz
+n_epsilons: 1
+date: '2026-02-20 16:31:51.143355'
+saved_filename: rate_butane_2026-02-20 16:31:51.142256

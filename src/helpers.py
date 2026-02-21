@@ -6,9 +6,11 @@ import matplotlib.transforms as transforms
 import scipy.interpolate as scinterp
 import scipy.spatial
 import sys
+from tqdm import tqdm
 import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 from scipy.sparse.csgraph import shortest_path
+from scipy.sparse import issparse
 from sklearn.neighbors import NearestNeighbors
 sys.path.append("..")
 try:
@@ -431,27 +433,36 @@ def periodic_add(x, y, boundary):
 if __name__ == '__main__':
     main()
 
-def epsilon_net(data, ϵ):
+def epsilon_net(data, ϵ, distance_fn=None):
 
     #initialize the net
 
     dense = True # parameter that checks whether the net is still dense
     # ϵ = 0.005
-    iter = 0 
+    it = 0 
     ϵ_net = np.array(range(data.shape[1]))
     current_point_index = ϵ_net[0]
 
     #fill the net
 
     while dense:
+        sys.stdout.write("\r{0}".format(f'Iteration {it}: Net size = {ϵ_net.shape[0]}'))
+        sys.stdout.flush()
         current_point = data[:,current_point_index] # set current point
-        ϵ_ball = np.where(np.linalg.norm(data - np.tile(current_point.reshape(current_point.shape[0],1), 
-                                                        (1,data.shape[1])), axis=0) <= ϵ)[0] # get indices for ϵ-ball
+        if distance_fn is None:
+            distances = np.linalg.norm(
+                data - np.tile(current_point.reshape(current_point.shape[0], 1), (1, data.shape[1])),
+                axis=0,
+            )
+        else:
+            distances = distance_fn(current_point.reshape(-1, 1), data).ravel()
+        ϵ_ball = np.where(distances <= ϵ)[0] # get indices for ϵ-ball
         ϵ_net = np.delete(ϵ_net, np.where(np.isin(ϵ_net, ϵ_ball))) # kill elements from the ϵ-ball from the net
         ϵ_net = np.append(ϵ_net, current_point_index) # add the current point at the BACK OF THE QUEUE. THIS IS KEY
         current_point_index = ϵ_net[0] # set current point for killing an epsilon ball in the next iteration
         if current_point_index == 0: # if the current point is the initial one, we are done! 
             dense = False
+        it += 1
     return ϵ_net, data[:,ϵ_net]
 
 def twowell_potential(x): return model_systems.twowell_potential(x)
@@ -649,3 +660,124 @@ def create_kernel_geodesic(sq_dists, n_neighbors=None, k_threshold=None):
     # K = np.exp(-geodesic_dists**2 / (2.0 * epsilon))
     
     return geodesic_dists, graph_adj
+
+def center_structure(X):
+    """Center structure by removing the centroid."""
+    return X - np.mean(X, axis=0)
+
+
+def kabsch_rmsd(X, Y):
+    """
+    Compute RMSD after optimal alignment using Kabsch algorithm.
+    
+    Parameters
+    ----------
+    X : array, shape (n_atoms, 3)
+        Reference structure (centered).
+    Y : array, shape (n_atoms, 3)
+        Structure to align (centered).
+    
+    Returns
+    -------
+    rmsd : float
+        RMSD after optimal rigid-body alignment.
+    """
+    # Center structures
+    X = center_structure(X)
+    Y = center_structure(Y)
+    
+    # Compute optimal rotation via SVD
+    H = X.T @ Y
+    U, _, Vt = np.linalg.svd(H)
+    R = Vt.T @ U.T
+    
+    # Ensure proper rotation (det(R) = 1)
+    if np.linalg.det(R) < 0:
+        Vt[-1, :] *= -1
+        R = Vt.T @ U.T
+    
+    # Align Y to X and compute RMSD
+    Y_aligned = Y @ R.T
+    rmsd = np.sqrt(np.mean(np.sum((X - Y_aligned)**2, axis=1)))
+    
+    return rmsd
+
+
+def compute_pairwise_alignment_rmsd(xyz_coords):
+    """
+    Compute pairwise RMSD between all configurations after optimal alignment.
+    
+    Parameters
+    ----------
+    xyz_coords : array, shape (n_frames, n_atoms, 3)
+        Coordinate array.
+    
+    Returns
+    -------
+    rmsd_matrix : array, shape (n_frames, n_frames)
+        Symmetric matrix of pairwise RMSD values.
+    """
+    n_frames = xyz_coords.shape[0]
+    rmsd_matrix = np.zeros((n_frames, n_frames))
+    
+    print(f"Computing pairwise alignment RMSD ({n_frames} frames)...")
+    for i in tqdm(range(n_frames)):
+        # if i % 1000 == 0:
+        #     print(f"  {i}/{n_frames}")
+        for j in range(i, n_frames):
+            rmsd = kabsch_rmsd(xyz_coords[i], xyz_coords[j])
+            rmsd_matrix[i, j] = rmsd
+            rmsd_matrix[j, i] = rmsd
+    
+    print(f"RMSD matrix shape: {rmsd_matrix.shape}")
+    print(f"RMSD range: [{rmsd_matrix.min():.6e}, {rmsd_matrix.max():.6e}]")
+    
+    return rmsd_matrix
+
+
+def alignment_rmsd_distance(X, Y):
+    """
+    Compute alignment-based RMSD between structures in X and Y.
+
+    Computes RMSD after optimal rigid-body alignment using the Kabsch algorithm.
+    Follows the same reshape convention as compute_aligned_sqdists in butane.py:
+    flat coordinates are reshaped to (n_samples, n_atoms, 3).
+
+    Parameters
+    ----------
+    X : array, shape (n_samples_X, 3*n_atoms)
+        Flattened XYZ coordinates, one sample per row.
+    Y : array, shape (n_samples_Y, 3*n_atoms)
+        Flattened XYZ coordinates, one sample per row.
+
+    Returns
+    -------
+    distances : array, shape (n_samples_X, n_samples_Y)
+        Matrix of alignment-based RMSD values between all pairs.
+
+    Notes
+    -----
+    - The number of features (columns) must be divisible by 3.
+    - Uses Kabsch algorithm for optimal alignment before computing RMSD.
+    """
+    n_samples_X, n_features = X.shape
+    n_samples_Y = Y.shape[0]
+
+    # Check that features are divisible by 3
+    if n_features % 3 != 0:
+        raise ValueError(f"Number of features ({n_features}) must be divisible by 3 for XYZ coordinates")
+
+    n_atoms = n_features // 3
+
+    # Reshape to (n_samples, n_atoms, 3) -- same as compute_aligned_sqdists
+    X_reshaped = X.reshape(n_samples_X, n_atoms, 3)
+    Y_reshaped = Y.reshape(n_samples_Y, n_atoms, 3)
+
+    # Compute pairwise alignment RMSD
+    distances = np.zeros((n_samples_X, n_samples_Y))
+    for i in range(n_samples_X):
+        for j in range(n_samples_Y):
+            distances[i, j] = kabsch_rmsd(X_reshaped[i], Y_reshaped[j])
+
+    return distances
+

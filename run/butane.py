@@ -1,220 +1,219 @@
+import logging
+import uuid
+
 import numpy as np 
-import scipy.sparse as sps
-from sklearn.neighbors import NearestNeighbors
-import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
 import scipy 
 import os
 import datetime
-# import copy
-# import sys 
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
-import argparse
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
+import hydra 
+from omegaconf import DictConfig, OmegaConf, open_dict
+from src.helpers import compute_pairwise_alignment_rmsd
 
-def main():
+log = logging.getLogger(__name__)
 
-    # Load data
-    fname = os.getcwd() + "/data/butane/butane_metad.npz"
-    inData = np.load(fname)
-    print("Keys in data:")
-    print(list(inData.keys()))
 
-    data = inData["data"]
-    #data = inData["data_all_atom"]
+# ============================================================================
+# Distance function implementations
+# ============================================================================
+def compute_euclidean_sqdists(data, **kwargs):
+    """Compute squared Euclidean distance matrix.
     
-    print("Data shape from trajectory:")
-    print(data.shape)
-    dihedrals = inData["dihedrals"]
-    potential = inData["potential"]
-    kbT = inData["kbT"]
-    print(f"kbT for data:{kbT}")
-    kbT_roomtemp = inData["kbT_roomtemp"]
-
-    print(f"kbT for room temperature:{kbT_roomtemp}")
-
-    # Load up delta net indices
-    fname = os.getcwd() + "/data/butane/butane_metad_deltanet.npz"
-    delta_idx = np.load(fname)["delta_idx"]
-
-    # Define Target Measure
-    target_measure = np.exp(-potential/(kbT_roomtemp))
+    Parameters
+    ----------
+    data : array, shape (n_samples, n_features)
+        Data array
+    **kwargs : unused
+        Additional parameters (for compatibility)
     
-    # Subsample dataset (in time or in space(deltanet) )
-    indices = np.arange(data.shape[0])
-    #sub_indices = indices[::18]
-    sub_indices = delta_idx
-    #sub_indices = indices
+    Returns
+    -------
+    sqdists : array, shape (n_samples, n_samples)
+        Squared Euclidean distance matrix
+    """
+    return cdist(data, data, 'sqeuclidean')
+
+
+def compute_aligned_sqdists(data, **kwargs):
+    """Compute squared RMSD distance matrix after optimal alignment (Kabsch).
     
-    new_data = data[sub_indices, :]
-    target_measure = np.exp(-potential[sub_indices]/(kbT_roomtemp))
-    num_samples = new_data.shape[0]
-    num_features = new_data.shape[1]
-    print(f"number of samples for subsampled data:{num_samples}") 
+    Parameters
+    ----------
+    data : array, shape (n_samples, n_features)
+        Data array. Will reshape to (n_samples, -1, 3) automatically.
+    **kwargs : unused
+        Additional parameters (for compatibility)
+    
+    Returns
+    -------
+    sqdists : array, shape (n_samples, n_samples)
+        Squared RMSD distance matrix after alignment
+    """
+    n_samples = data.shape[0]
+    # Reshape to (n_samples, n_atoms, 3) automatically
+    data_reshaped = data.reshape(n_samples, -1, 3)
+    # Compute pairwise RMSD via alignment
+    rmsd_matrix = compute_pairwise_alignment_rmsd(data_reshaped)
+    return rmsd_matrix ** 2  # Return squared distances
 
-    # # Try out Ksum test, likely to no avail...
-    # eps_vals = 10.0**np.arange(-4, -1, 0.1)
-    # [Ksum, chi_log_analytical, optimal_eps, effective_dim] = Ksum_test_unweighted(eps_vals, new_data, n_neighs=1024)
-    # print(f"eps_kde = {optimal_eps}")
 
-    # plt.figure()
-    # plt.plot(eps_vals, Ksum)
-    # plt.xscale("log", base=10)
-    # plt.yscale("log", base=10)
-    # plt.axvline(x=optimal_eps, ls='--')
+def get_distance_function(distance_metric):
+    """Get distance computation function by name.
+    
+    Parameters
+    ----------
+    distance_metric : str
+        Name of distance metric: 'euclidean' or 'aligned'
+    
+    Returns
+    -------
+    distance_fn : callable
+        Function that computes distance matrix
+    """
+    distance_functions = {
+        'euclidean': compute_euclidean_sqdists,
+        'aligned': compute_aligned_sqdists,
+    }
+    
+    if distance_metric not in distance_functions:
+        raise ValueError(f"Unknown distance metric: {distance_metric}. Available: {list(distance_functions.keys())}")
+    
+    return distance_functions[distance_metric]
 
-    # plt.figure()
-    # plt.plot(eps_vals, chi_log_analytical)
-    # plt.title("log Ksums")
-    # plt.xscale("log", base=10)
-    # plt.yscale("log", base=10)
-    # plt.title("dlog_Sum/dlog_eps")
-    # plt.axvline(x=optimal_eps, ls='--')
-    # #plt.savefig(fname, dpi=300)
 
-    # Try out different A, B sets for committor 
-    radius = 0.1
-    OPTION = 2
-    if OPTION == 0: 
-        Acenter = np.pi
-        Bcenter = 5*(np.pi/3)
-        A = np.abs(dihedrals[sub_indices] - Acenter) < radius
-        B = np.abs(dihedrals[sub_indices] - Bcenter) < radius
-    elif OPTION == 1:
-        Acenter = np.pi/3
-        Bcenter = 5*(np.pi/3)
-        A = np.abs(dihedrals[sub_indices] - Acenter) < radius
-        B = np.abs(dihedrals[sub_indices] - Bcenter) < radius
-    elif OPTION == 2:
-        Acenter = np.pi
-        # A = np.abs(dihedrals[sub_indices] - Acenter) < radius
-        A = np.abs(dihedrals[sub_indices] - Acenter) < 0.2
-        B = np.logical_or(np.abs(dihedrals[sub_indices] - np.pi/3) < radius,np.abs(dihedrals[sub_indices] - 5*(np.pi/3)) < radius)
-    print(f"samples in A:{new_data[A, :].shape[0]}")
-    print(f"samples in B:{new_data[B, :].shape[0]}")
-    C = np.ones(num_samples, dtype=bool)
-    C[A] = False
-    C[B] = False
-
-    # Run diffusion map
-    epsilon = 0.0039 # for metad + deltanet
-    # epsilon = 0.0016 # for metad
-     # for metad 
-    DENSE = True 
-    save = False  
-    load = False  
-
-    if load: 
-            solns = np.load('q.npy',allow_pickle=True)
-            q = solns.item()['committor']
-            epsilon = solns.item()['epsilon']
-            L = solns.item()['L']
-            K = solns.item()['K']
-            print(epsilon)
+def get_distance_fn_from_cfg(cfg):
+    """Extract distance function and kwargs from hydra config.
+    
+    Parameters
+    ----------
+    cfg : DictConfig or None
+        Hydra config. If None or missing 'distance' key,
+        defaults to Euclidean squared distances.
+    
+    Returns
+    -------
+    distance_fn : callable
+    distance_kwargs : dict
+    """
+    if cfg is not None and 'distance' in cfg:
+        distance_fn = get_distance_function(cfg['distance']['metric'])
+        distance_kwargs = dict(cfg['distance'].get('kwargs', {}))
     else:
-        if DENSE:
-            print("dense dmaps!")
-            [stationary, K, L] = create_laplacian_dense(new_data, target_measure, epsilon=epsilon)
-            q = solve_committor_dense(L, B, C, num_samples) 
-        # eigvecs, _ = compute_spectrum_dense(L, stationary, num_eigvecs=4)
-
-        else:
-            n_neighbors = 256
-            print("sparse dmaps!")
-            [stationary, K, L] = create_laplacian_sparse(new_data, target_measure, epsilon=epsilon, n_neighbors=n_neighbors)
-            q = solve_committor_sparse(L, B, C, num_samples)
-            # diffcoords, eigvecs, eigvals = compute_spectrum_sparse(L, stationary, num_eigvecs=4)
-            #fric = 0.01 #friction in femtoseconds
-            #mass = 12.01 #mass in amus
-            #rate = (1/fric)*mass*compute_rate_sparse(L, K, target_measure, q, beta=(1/kbT), effective_dim=12, epsilon=epsilon)
-            #rate = compute_rate_sparse(L, K, target_measure, q, beta=(1/kbT_roomtemp), effective_dim=12, epsilon=epsilon)
-            #rho_rate = compute_escape_rate(L,K,target_measure, q, beta=(1/kbT_roomtemp))
-            #print(rate)
-            #print(rho_rate)
-
-    # plot committor 
-    plt.figure()
-    plt.xlabel("dihedral")
-    plt.ylabel("committor")
-    plt.scatter(dihedrals[sub_indices][C], q[C], s=0.4, c='blue')
-    plt.scatter(dihedrals[sub_indices][A], q[A], s=0.4, c='red')
-    plt.scatter(dihedrals[sub_indices][B], q[B], s=0.4, c='green')
-    plt.title(f"committor, metad + deltanet, delta = 0.15, eps={epsilon}")
-
-    # save committor
-    if save: 
-            print('saving..!')
-            np.save('q.npy',{'committor': q, 'epsilon': epsilon, 'K': K, 'L': L})
-
-    # compute rate 
-    compute_rate = True
-    if compute_rate:
-        # get datasampled through exp(-beta V)
-        print(q.shape)
-        print(new_data.shape)
-        # rate, rho_A = ratecomputer(q,dihedrals[delta_idx],epsilon,C) 
-        rate = compute_rate_sparse(L,K,target_measure,q,beta=(1/kbT), effective_dim=12, epsilon=epsilon, C=C, dense = DENSE)
-        _, rho_A = ratecomputer(q,dihedrals[sub_indices],epsilon,C)
-        print(rate)
-        print(rho_A)
-        # print(min(eigvals))
+        distance_fn = compute_euclidean_sqdists
+        distance_kwargs = {}
+    return distance_fn, distance_kwargs
 
 
-    plot_tmdmap = False
-    if plot_tmdmap:
-        plt.figure()
-        plt.xlabel("dihedral")
-        plt.ylabel("eigvec 1")
-        plt.scatter(dihedrals[sub_indices], eigvecs[:, 0], s=0.1)
-        plt.title(f"eigvec1")
+def get_or_compute_sqdists(cfg, data):
+    """Load a pre-computed squared distance matrix or compute (and save) a new one.
 
-        plt.figure()
-        plt.xlabel("dihedral")
-        plt.ylabel("eigvec 2")
-        plt.scatter(dihedrals[sub_indices], eigvecs[:, 1], s=0.1)
-        plt.title(f"eigvec2")
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config.  Looks for ``cfg.distance.precomputed_path``.
+        If that key is present and not None, the matrix is loaded from disk.
+        Otherwise it is computed with the distance function specified in
+        ``cfg.distance.metric`` (defaulting to Euclidean), and saved to
+        ``data/butane/dist_matrices/<timestamp>_<hex>/``.
+    data : array, shape (n_samples, n_features)
+        Raw coordinate data (only used when computing fresh).
 
-        plt.figure()
-        plt.xlabel("dihedral")
-        plt.ylabel("eigvec 3")
-        plt.scatter(dihedrals[sub_indices], eigvecs[:, 2], s=0.1)
-        plt.title(f"eigvec3")
+    Returns
+    -------
+    sqdists : array, shape (n_samples, n_samples)
+        Squared pairwise distance matrix.
+    """
+    # --- Try loading a pre-computed matrix ---
+    precomputed_path = None
+    if cfg is not None and 'distance' in cfg:
+        precomputed_path = cfg['distance'].get('precomputed_path', None)
 
-        fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        s=ax.scatter(diffcoords[:, 0], diffcoords[:, 1], diffcoords[:, 2], c=dihedrals[sub_indices], cmap='hsv', s=0.5)
-        ax.set_xlabel('eigvec1')
-        ax.set_ylabel('eigvec2')
-        ax.set_zlabel('eigvec3')
-        fig.colorbar(s)
+    if precomputed_path is not None:
+        log.info(f"Loading pre-computed distance matrix from {precomputed_path}")
+        sqdists = np.load(precomputed_path)['sqdists']
+        log.info(f"Loaded distance matrix shape: {sqdists.shape}")
+        return sqdists
 
-    plt.show() 
-    return None
+    # --- Compute fresh ---
+    distance_fn, distance_kwargs = get_distance_fn_from_cfg(cfg)
+    log.info("Computing pairwise distance matrix...")
+    sqdists = distance_fn(data, **distance_kwargs)
+    log.info(f"Distance matrix shape: {sqdists.shape}")
 
-def rate(epsilon,deltanet):
-    # get data
-    new_data, dihedrals, target_measure, kbT = get_metadynamicsdata(deltanet)
+    # --- Save to disk ---
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    hex_key = uuid.uuid4().hex[:8]
+    folder_name = f"{timestamp}_{hex_key}"
+    save_dir = os.path.join(os.getcwd(), "data", "butane", "dist_matrices", folder_name)
+    os.makedirs(save_dir, exist_ok=True)
 
-    # make booleans 
-    A,B,C = getboolz(dihedrals,0.2,0.1)
+    sqdists_path = os.path.join(save_dir, "sqdists.npz")
+    np.savez(sqdists_path, sqdists=sqdists)
+    log.info(f"Saved distance matrix to {sqdists_path}")
+
+    config_path = os.path.join(save_dir, "config.yaml")
+    OmegaConf.save(cfg, config_path)
+    log.info(f"Saved config snapshot to {config_path}")
+
+    return sqdists
+
+
+@hydra.main(version_base=None, config_path="../data/butane/configs", config_name="butane_run_config")
+def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
+    simulate_rate(cfg)
+
+def rate(sqdists, target_measure, epsilon, states, kbT, dihedrals, logger):
+    """Compute committor, transition rate, and escape rate for a single epsilon.
+
+    Parameters
+    ----------
+    sqdists : array, shape (n_samples, n_samples)
+        Pre-computed squared pairwise distance matrix.
+    target_measure : array, shape (n_samples,)
+        Target (reweighting) measure.
+    epsilon : float
+        Bandwidth parameter.
+    states : dict
+        Metastable state boolean masks with keys 'A', 'B', 'C'.
+    kbT : float
+        Thermal energy k_B T.
+    dihedrals : array, shape (n_samples,)
+        Dihedral angles for committor interpolation.
+    logger : logging.Logger
+        Logger instance for status messages.
+
+    Returns
+    -------
+    solns : dict
+        Keys: 'committor', 'epsilon', 'rate', 'rho_A'.
+    """
+    B, C = states['B'], states['C']
+    n_samples = sqdists.shape[0]
 
     # set up diffusion map DENSE 
-    [stationary, K, L] = create_laplacian_dense(new_data, target_measure, epsilon=epsilon)
+    [stationary, K, L] = create_laplacian_dense(sqdists, target_measure, epsilon=epsilon)
 
     # solve the committor problem 
-    q = solve_committor_dense(L, B, C, new_data.shape[0]) 
+    try: 
+        q = solve_committor_dense(L, B, C, n_samples) 
 
-    # compute rate
-    rate = compute_rate_sparse(L,K,target_measure,q,beta=(1/kbT), effective_dim=12, epsilon=epsilon, C=C, dense = True)
-    _, rho_A = ratecomputer(q,dihedrals,epsilon,C) 
+        # compute rate
+        rate_val = compute_transition_rate(L, K, target_measure, q, beta=(1/kbT), effective_dim=12, epsilon=epsilon, C=C, dense=True)
+        rho_A = compute_rho_interpolation(q, dihedrals) 
 
-    # print, save, return 
-    # print(f"Transition rate: {rate}, rho_A: {rho_A}")
-    solns = {'committor': q, 'epsilon': epsilon, 'rate': rate, 'rho_A': rho_A}
+        solns = {'committor': q, 'epsilon': epsilon, 'rate': rate_val, 'rho_A': rho_A}
+        logger.info(f"epsilon={epsilon:.6e}  rate={rate_val:.6e}  rho_A={rho_A:.6e}")
+    except Exception as e:
+        logger.error(f"Exception at epsilon={epsilon}: {e}")
+        solns = {'committor': None, 'epsilon': epsilon, 'rate': None, 'rho_A': None}
     return solns  
 
 def get_metadynamicsdata(deltanet): 
     # Load data
-    fname = os.getcwd() + "/data/butane/butane_metad.npz"
+    fname = os.getcwd() + "/data/butane/butane_metad_deltanet_dihedrals.npz"
     inData = np.load(fname)
     print("Keys in data:")
     print(list(inData.keys()))
@@ -225,29 +224,29 @@ def get_metadynamicsdata(deltanet):
     print("Data shape from trajectory:")
     print(data.shape)
     dihedrals = inData["dihedrals"]
-    potential = inData["potential"]
-    kbT = inData["kbT"]
+    # potential = inData["potential"]
+    kbT = 1/inData["beta"]
     print(f"kbT for data:{kbT}")
-    kbT_roomtemp = inData["kbT_roomtemp"]
+    kbT_roomtemp = 1/inData["beta"]
 
     print(f"kbT for room temperature:{kbT_roomtemp}")
 
     # Load up delta net indices
-    fname = os.getcwd() + "/data/butane/butane_metad_deltanet.npz"
-    delta_idx = np.load(fname)["delta_idx"]
+    delta_idx = inData["net_idx"]
 
     # Define Target Measure
-    target_measure = np.exp(-potential/(kbT_roomtemp))
-    
+    # target_measure = np.exp(-potential/(kbT_roomtemp))
+    target_measure = inData["target_measure"]
     # Subsample dataset (in time or in space(deltanet) )
     indices = np.arange(data.shape[0])
     if deltanet: 
         sub_indices = delta_idx
     else:
-        sub_indices = indices[::16]
+        sub_indices = indices[-np.shape(delta_idx)[0]:]
     
     new_data = data[sub_indices, :]
-    target_measure = np.exp(-potential[sub_indices]/(kbT_roomtemp))
+    # target_measure = np.exp(-potential[sub_indices]/(kbT_roomtemp))
+    target_measure = target_measure[sub_indices]
     num_samples = new_data.shape[0]
     num_features = new_data.shape[1]
     print(f"number of samples for subsampled data:{num_samples}")
@@ -255,83 +254,28 @@ def get_metadynamicsdata(deltanet):
     dihedrals = dihedrals[sub_indices]
     return new_data, dihedrals, target_measure, kbT 
 
-def create_laplacian_sparse(data, target_measure, epsilon, n_neighbors):
+def create_laplacian_dense(sqdists, target_measure, epsilon):
+    """Build the TMDmap graph Laplacian from a pre-computed distance matrix.
 
-    num_features = data.shape[1]
-    num_samples = data.shape[0]
+    Parameters
+    ----------
+    sqdists : array, shape (n_samples, n_samples)
+        Squared pairwise distance matrix.
+    target_measure : array, shape (n_samples,)
+        Target (reweighting) measure.
+    epsilon : float
+        Bandwidth parameter.
 
-    ### Create distance matrix
-    neigh = NearestNeighbors(n_neighbors=n_neighbors, metric='sqeuclidean')
-    neigh.fit(data)
-    sqdists = neigh.kneighbors_graph(data, mode="distance") 
-    print(f"Data type of squared distance matrix: {type(sqdists)}")
+    Returns
+    -------
+    stationary : array, shape (n_samples,)
+    K : array, shape (n_samples, n_samples)
+        Kernel matrix.
+    L : array, shape (n_samples, n_samples)
+        Generator (graph Laplacian).
+    """
+    num_samples = sqdists.shape[0]
 
-    ### Create Kernel
-    K = sqdists.copy()
-    K.data = np.exp(-K.data / (2*epsilon))
-    K = 0.5*(K + K.T)
- 
-    kde = np.asarray(K.sum(axis=1)).ravel()
-    #kde *=  (1.0/num_samples)*(2*np.pi*epsilon)**(-num_features/2) 
-    
-    # Check sparsity of kernel
-    num_entries = K.shape[0]**2
-    nonzeros_ratio = K.nnz / (num_entries)
-    print(f"Ratio of nonzeros to zeros in kernel matrix: {nonzeros_ratio}")
-
-    ### Create Graph Laplacian
-    u = (target_measure**(0.5)) / kde
-    U = sps.spdiags(u, 0, num_samples, num_samples) 
-    W = U @ K @ U
-    stationary = np.asarray(W.sum(axis=1)).ravel()
-    inv_stationary = np.power(stationary, -1)
-    P = sps.spdiags(inv_stationary, 0, num_samples, num_samples) @ W 
-    L = (P - sps.eye(num_samples, num_samples))/epsilon
-
-    return [stationary, K, L]
-
-def solve_committor_sparse(L, B, C, num_samples):
-
-    print("solving the committor problem...")
-    ### Solve Committor
-    Lcb = L[C, :][:, B]
-    Lcc = L[C, :][:, C]
-
-    q = np.zeros(num_samples)
-    q[B] = 1
-    row_sum = np.asarray(Lcb.sum(axis=1)).ravel()
-    q[C] = sps.linalg.spsolve(Lcc, -row_sum)
-    print("done!")
-    return q
-
-def compute_spectrum_sparse(L, stationary, num_eigvecs):
-    # Symmetrize the generator 
-    num_samples = L.shape[0]
-    Dinv_onehalf =  sps.spdiags(stationary**(-0.5), 0, num_samples, num_samples)
-    D_onehalf =  sps.spdiags(stationary**(0.5), 0, num_samples, num_samples)
-    Lsymm = D_onehalf @ L @ Dinv_onehalf
-
-    # Compute eigvals, eigvecs 
-    evals, evecs = sps.linalg.eigsh(Lsymm, k=num_eigvecs, which='SM')
-
-    # Convert back to L^2 norm-1 eigvecs of L 
-    evecs = (Dinv_onehalf) @ evecs
-    evecs /= (np.sum(evecs**2, axis=0))**(0.5)
-    
-    idx = evals.argsort()[::-1][1:]     # Ignore first eigval / eigfunc
-    evals = np.real(evals[idx])
-    evecs = np.real(evecs[:, idx])
-    dmap = np.dot(evecs, np.diag(np.sqrt(-1./evals)))
-    return dmap, evecs, evals
-
-def create_laplacian_dense(data, target_measure, epsilon):
-
-    num_features = data.shape[1]
-    num_samples = data.shape[0]
-
-    ### Create distance matrix
-    sqdists = cdist(data, data, 'sqeuclidean') 
-    
     ### Create Kernel
     K = np.exp(-sqdists / (2.0*epsilon))
 
@@ -357,114 +301,7 @@ def solve_committor_dense(L, B, C, num_samples):
     q[C] = np.linalg.solve(Lcc, -row_sum)
     return q
 
-def compute_spectrum_dense(L, stationary, num_eigvecs):
-    # Symmetrize the generator 
-    Dinv_onehalf =  np.diag(stationary**(-0.5))
-    D_onehalf =  np.diag(stationary**(0.5))
-    Lsymm = D_onehalf @ L @ Dinv_onehalf
-
-    # Compute eigvals, eigvecs 
-    evals, evecs = sps.linalg.eigsh(Lsymm, k=num_eigvecs, which='SM')
-
-    # Convert back to L^2 norm-1 eigvecs of L 
-    evecs = (Dinv_onehalf) @ evecs
-    evecs /= (np.sum(evecs**2, axis=0))**(0.5)
-    
-    idx = evals.argsort()[::-1][1:]     # Ignore first eigval / eigfunc
-    evals = np.real(evals[idx])
-    evecs = np.real(evecs[:, idx])
-    return evecs, evals
-
-def Ksum_test_unweighted(eps_vals, data, n_neighs):
-
-    num_idx = eps_vals.shape[0]
-    Ksum = np.zeros(num_idx)
-    chi_log_analytical = np.zeros(num_idx)
-       
-    num_features = data.shape[1]
-    num_samples = data.shape[0]
-    
-    ### Create distance matrix
-    neigh = NearestNeighbors(n_neighbors=n_neighs, metric='sqeuclidean')
-    neigh.fit(data)
-    sqdists = neigh.kneighbors_graph(data, mode="distance") 
-
-    for i in range(num_idx):
-        # Construct sparsified sqdists, kernel and generator with radius nearest neighbors 
-        epsilon = eps_vals[i]
-        print(f"doing epsilon {i}")
-        
-        ### Create Kernel
-        K = sqdists.copy()
-        K.data = np.exp(-K.data / (2*epsilon))
-        K = 0.5*(K + K.T) # symmetrize kernel
-
-        ### Create Graph Laplacian
-        Ksum[i] = K.sum(axis=None)
-
-        # Compute deriv of log Ksum w.r.t log epsilon ('chi log')
-        mat = K.multiply(sqdists)
-        chi_log_analytical[i] = mat.sum(axis=None)  / ((2*epsilon)*Ksum[i])
-        print(f"epsilon: {epsilon}")
-        print(f"chi log: {chi_log_analytical[i]}")
-        print("\n") 
-    optimal_eps = eps_vals[np.nanargmax(chi_log_analytical)]
-    effective_dim = (2*np.amax(chi_log_analytical))
-    print(f"effective dim: {effective_dim}")
-    return [Ksum, chi_log_analytical, optimal_eps, effective_dim]
-
-def Ksum_test_weighted(eps_vals, eps_kde, data, target_measure, d=None):
-
-    num_idx = eps_vals.shape[0]
-    Ksum = np.zeros(num_idx)
-    chi_log_analytical = np.zeros(num_idx)
-
-    num_features = data.shape[1]
-    num_samples = data.shape[0]
-    
-    ### Create distance matrix
-    neigh = NearestNeighbors(n_neighbors=512, metric='sqeuclidean')
-    neigh.fit(data)
-    sqdists = neigh.kneighbors_graph(data, mode="distance") 
-    print(f"Data type of squared distance matrix: {type(sqdists)}")
-
-    ### Create KDE
-    K = sqdists.copy()
-    K.data = np.exp(-K.data / (2*eps_kde))
-    K = 0.5*(K + K.T) # symmetrize kernel
-
-    ### Create Graph Laplacian
-    kde = np.asarray(K.sum(axis=1)).squeeze()
-    if d == None:
-        kde *=  (1.0/num_samples)*(2*np.pi*eps_kde)**(-num_features/2) 
-    else:
-        kde *=  (1.0/num_samples)*(2*np.pi*eps_kde)**(-d/2) 
-
-    ### Create reweighting vector
-    u = (target_measure**(0.5)) / kde
-    U = sps.spdiags(u, 0, num_samples, num_samples) 
-
-    for i in range(num_idx):
-        # Construct sparsified sqdists, kernel and generator with radius nearest neighbors 
-        epsilon = eps_vals[i]
-        print(f"doing epsilon {i}")
-
-        K = sqdists.copy()
-        K.data = np.exp(-K.data / (2*epsilon))
-        K = 0.5*(K + K.T) # symmetrize kernel
-        W = U @ K @ U
-        Ksum[i] = W.sum(axis=None)
-
-        # Compute deriv of log Ksum w.r.t log epsilon ('chi log')
-        mat = W.multiply(sqdists)
-        chi_log_analytical[i] = mat.sum(axis=None)  / ((2*epsilon)*Ksum[i])
-        print(f"epsilon: {epsilon}")
-        print(f"chi log: {chi_log_analytical[i]}")
-        print("\n") 
-        optimal_eps = eps_vals[np.nanargmax(chi_log_analytical)]
-    return [Ksum, chi_log_analytical, optimal_eps]
-
-def compute_rate_sparse(L, K, target_measure, q, beta, effective_dim, epsilon, C, dense):
+def compute_transition_rate(L, K, target_measure, q, beta, effective_dim, epsilon, C, dense):
     N = L.shape[0]
     kde = np.asarray(K.sum(axis=1)).ravel()
     #kde *=  (1.0/N)*(2*np.pi*epsilon)**(-effective_dim/2) 
@@ -479,97 +316,150 @@ def compute_rate_sparse(L, K, target_measure, q, beta, effective_dim, epsilon, C
     rate = (1/beta)*(1/np.count_nonzero(C))*np.sum(weight_Zdmap[C]*A[C, :].dot(q**2))
     return rate
 
-def compute_escape_rate(L,K,target_measure,q,beta,epsilon,effective_dim):
-    N = L.shape[0]
-    kde = np.asarray(K.sum(axis=1)).ravel()
-    #kde *=  (1.0/N)*(2*np.pi*epsilon)**(-effective_dim/2) 
-    kde *= (1./np.sum(kde))
-    #kde *= (1/N)
-    Z_dmap = (1.0/N)*np.sum(target_measure / kde)
-    weight_Zdmap = (target_measure/(kde*Z_dmap)).flatten()
-    rate = 1 - (1.0/N)*np.sum(q*weight_Zdmap)
-    return rate 
+def getboolz(dihedrals, ra, rb): 
+    """Compute metastable state boolean masks.
 
-def getboolz(dihedrals,ra, rb): 
+    Returns
+    -------
+    states : dict
+        Keys 'A', 'B', 'C' mapping to boolean arrays.
+    """
     Acenter = np.pi
-    # A = np.abs(dihedrals[sub_indices] - Acenter) < radius
     A = np.abs(dihedrals - Acenter) < ra
     B = np.logical_or(np.abs(dihedrals - np.pi/3) < rb, np.abs(dihedrals - 5*(np.pi/3)) < rb)
     C = np.ones(dihedrals.shape[0], dtype=bool)
     C[A] = False
     C[B] = False
-    return A,B,C 
+    return {'A': A, 'B': B, 'C': C}
 
-def plot_committor(q,dihedrals,epsilon): 
-    # plot committor 
-    plt.figure()
-    plt.xlabel("dihedral")
-    plt.ylabel("committor")
-    plt.scatter(dihedrals, q, s=0.1)
-    plt.title(f"committor, eps={epsilon}")
-
-def ratecomputer(q,dihedrals,epsilon,C):
-    # Load data 
-    fname = os.getcwd() + "/data/butane/butane_300K.npz"
+# ============================================================================
+# Escape rate computation modules
+# ============================================================================
+def load_equilibrium_data(fname=None, subsample=10):
+    """Load equilibrium (unbiased) trajectory data.
+    
+    Parameters
+    ----------
+    fname : str, optional
+        Path to the equilibrium .npz file. Defaults to
+        'data/butane/butane_300K.npz' relative to cwd.
+    subsample : int
+        Take every `subsample`-th frame.
+    
+    Returns
+    -------
+    dihedrals_eq : array, shape (n_samples,)
+        Dihedral angles wrapped to [0, 2*pi).
+    beta : float
+        Inverse temperature 1/kbT.
+    """
+    if fname is None:
+        fname = os.getcwd() + "/data/butane/butane_300K.npz"
     inData = np.load(fname)
-    print("Keys in data: ")
-    print(list(inData.keys()))
-    dihedrals_mu = inData["dihedrals"][::10]
-    potential_mu = inData["potential"][::10]
-    data = inData["data"][::10,:]
-    dihedrals_mu[dihedrals_mu < 0] = dihedrals_mu[dihedrals_mu < 0] + 2*np.pi
-    print(f"kbT value: {inData['kbT']}")
-    beta = 1/inData['kbT']
+    dihedrals_eq = inData["dihedrals"][::subsample]
+    dihedrals_eq[dihedrals_eq < 0] += 2 * np.pi
+    beta = 1.0 / inData["kbT"]
+    return dihedrals_eq, beta
+
+
+def interpolate_committor(q, dihedrals_from, dihedrals_to):
+    """Interpolate a committor from one set of dihedrals to another.
     
-    # interpolate committor 
-    from_data = dihedrals
-    to_data = dihedrals_mu
-    q_interpolant = scipy.interpolate.interp1d(from_data.flatten(), q.flatten(), kind='linear')
-    q_mu = q_interpolant(to_data).flatten()
-    N = q_mu.shape[0]
+    Parameters
+    ----------
+    q : array, shape (n_biased,)
+        Committor values on the biased (source) dihedrals.
+    dihedrals_from : array, shape (n_biased,)
+        Dihedral angles where `q` is defined.
+    dihedrals_to : array, shape (n_eq,)
+        Dihedral angles to interpolate onto.
     
-    # preprocess the interpolant
-    # q_mu[q_mu <= 0.0] = np.zeros(q_mu[q_mu <= 0.0].shape)
-    # q_mu[q_mu >= 1.0] = np.ones(q_mu[q_mu >= 1.0].shape)
-
-    # plot the interpolant 
-    # plot_committor(q_mu,dihedrals_mu,epsilon)
-
-    # generate operator on new data
-    mu_un = np.exp(-beta*potential_mu)
-    [_, K, L] = create_laplacian_dense(data, mu_un, epsilon=epsilon)
-    [_, _, C] = getboolz(dihedrals_mu,0.2,0.1)
-
-    # estimate rates: the data is ALREADY SAMPLED THRU INVARAINT MEASURE! 
-    # mu = (1/np.mean(mu_un))*mu_un.flatten()
-    Q = q_mu[np.newaxis, ...] - q_mu[:, np.newaxis, ...]
-    Q = Q[C,:]
-    rate = (1/beta)*(1/np.count_nonzero(C))*np.sum(L[C,:]*(Q**2))
-    escape_rate = np.mean(1-q_mu) 
-
-    # outputs 
-    return rate, escape_rate
+    Returns
+    -------
+    q_interpolated : array, shape (n_eq,)
+        Committor evaluated at `dihedrals_to`.
+    """
+    interp_fn = scipy.interpolate.interp1d(
+        dihedrals_from.flatten(), q.flatten(), kind='linear'
+    )
+    return interp_fn(dihedrals_to).flatten()
 
 
-def simulate_rate(flag=True): 
-    epsilons = np.linspace(0.0009,0.0049,41)
+def compute_escape_rate_from_committor(q_mu):
+    """Compute the escape rate from an interpolated committor.
+    
+    Parameters
+    ----------
+    q_mu : array, shape (n_eq,)
+        Committor evaluated on the equilibrium sample.
+    
+    Returns
+    -------
+    escape_rate : float
+        Mean of (1 - q) over the equilibrium sample.
+    """
+    return np.mean(1.0 - q_mu)
+
+
+def compute_rho_interpolation(q, dihedrals):
+    """Estimate escape rate by interpolating the committor onto equilibrium data.
+    
+    Parameters
+    ----------
+    q : array, shape (n_biased,)
+        Committor on the biased dataset.
+    dihedrals : array, shape (n_biased,)
+        Dihedral angles corresponding to `q`.
+    
+    Returns
+    -------
+    escape_rate : float
+        Mean of (1 - q) over equilibrium samples.
+    """
+    dihedrals_eq, _ = load_equilibrium_data()
+    q_eq = interpolate_committor(q, dihedrals, dihedrals_eq)
+    return compute_escape_rate_from_committor(q_eq)
+
+
+def simulate_rate(cfg): 
+    flag = cfg['flag']
+    min_epsilon, max_epsilon = cfg['epsilon_min'], cfg['epsilon_max']
+    n_epsilons = cfg.get('n_epsilons', 100)
+    if cfg['log_scale']:
+        epsilons = np.logspace(np.log10(min_epsilon), np.log10(max_epsilon), n_epsilons)
+    else:
+        epsilons = np.linspace(min_epsilon, max_epsilon, n_epsilons)
+
+    # --- Load data and metastable states once ---
+    new_data, dihedrals, target_measure, kbT = get_metadynamicsdata(flag)
+    states = getboolz(dihedrals, 0.2, 0.1)
+
+    # --- Compute pairwise distances once (or load pre-computed) ---
+    sqdists = get_or_compute_sqdists(cfg, new_data)
+
+    # --- Sweep over epsilons ---
     trials = [] 
-    print("Starting trials...")
+    log.info("Starting trials...")
     for epsilon in epsilons:
-        print(f"epsilon = {epsilon}")
-        soln = rate(epsilon,flag)
-        print(soln)
+        soln = rate(sqdists, target_measure, epsilon, states, kbT, dihedrals, log)
+        soln['deltanet'] = flag
         trials.append(soln)
     trials = np.array(trials)
-    print("Now saving...")
-    filename = os.getcwd() + '/data/butane/' + 'rate_butane_metad_deltanet' + '_' + str(datetime.datetime.now())
-    np.savez(filename, trials=trials)
-    print("Save finished!")
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--flag', default=False, action=argparse.BooleanOptionalAction)
-    args = parser.parse_args()
-    flag = args.flag
-    simulate_rate(flag)
+    # --- Save ---
+    log.info("Now saving...")
+    filename = 'rate_butane' + '_' + str(datetime.datetime.now())
+    save_directory = os.getcwd() + '/data/butane/' + 'rate_butane' + '_' + str(datetime.datetime.now())
+    np.savez(save_directory, trials=trials)
+    with open_dict(cfg):
+        cfg.date = str(datetime.datetime.now())
+        cfg.saved_filename = filename
+    OmegaConf.save(cfg, os.getcwd() + "/data/butane/" + filename + "_config.yaml")
+    log.info("Save finished!")
+
+if __name__ == '__main__':    
+    main()
+
+
+
 
