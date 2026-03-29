@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
 import os
 import copy
 import sys 
@@ -39,34 +36,43 @@ from src.fem.distmesh import *
 from src.fem.FEM_TPT import *
 import src.sampling as sampling 
 
-# get args from command line 
-parser = argparse.ArgumentParser()
-parser.add_argument("--sys", type=str, help="either muller or twowell", default='')
-parser.add_argument("--dset", type=str, help="gibbs/metadynamics/uniform", default='gibbs')
-parser.add_argument("--note", type=str, help="add note", default='')
-parser.add_argument("--tru", type=str, help="location of ground truth solution", default='')
-parser.add_argument("--save", type=str, help="where to save error data", default='')
-# parser.add_argument("--weight", type=bool, help="Compute weighted RMSE?", default=False)
-parser.add_argument('--wRMSE', action=argparse.BooleanOptionalAction, default=False, help='Use wRMSE?')
+# # get args from command line 
+# parser = argparse.ArgumentParser()
+# parser.add_argument("--sys", type=str, help="either muller or twowell", default='')
+# parser.add_argument("--dset", type=str, help="gibbs/metadynamics/uniform", default='gibbs')
+# parser.add_argument("--note", type=str, help="add note", default='')
+# parser.add_argument("--tru", type=str, help="location of ground truth solution", default='')
+# parser.add_argument("--save", type=str, help="where to save error data", default='')
+# # parser.add_argument("--weight", type=bool, help="Compute weighted RMSE?", default=False)
+# parser.add_argument('--wRMSE', action=argparse.BooleanOptionalAction, default=False, help='Use wRMSE?')
 
-args = parser.parse_args()
+# args = parser.parse_args()
 
 
-problem = args.sys
-dataset = args.dset
-note = args.note 
-datadir = args.tru
-savedir = args.save
-weighting = args.wRMSE
+# problem = args.sys
+# dataset = args.dset
+# note = args.note 
+# datadir = args.tru
+# savedir = args.save
+# weighting = args.wRMSE
 
+problem = "Muller"
+dataset = "gibbs"
+note = "test"
+datadir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/ground_data/DistmeshMuller_20.mat"
+savedir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/revisions/"
+error_dict = '/Users/shashanksule/Documents/TMDmaps/data/Muller/error_data/sim_feb6/muller_gibbs.npy'
+weighting = True
+generate = False
+load_previous_params = True
 # first choose problem 
 # problem = "muller"
 # datadir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/ground_data/DistmeshMueller_20.mat"
-if problem == "muller":
+if problem == "Muller":
     system = potentials.Muller(1/20, datadir)
     Vbdry = 10 
     system.plant_point = np.array([1.0, 0.0])
-elif problem == "twowell":
+elif problem == "Twowell":
     system = potentials.Twowell(1, datadir)
     Vbdry = 1
     system.plant_point = np.array([1.0, -0.5])
@@ -75,34 +81,37 @@ else:
 # savedir = "/Users/shashanksule/Documents/TMDmaps/data/Muller/error_data/"
 
 # next choose dataset params 
+if generate:
+    # dataset = "metadynamics"
+    x0 = np.array([0,0])
+    dt = 1e-4
+    # metadynamics params here
+    Nbumps = int(1e3) 
+    Ndeposit = int(1e3)
+    subsample = int(1e2)
+    height = 5*np.ones(Nbumps)
+    sig = 0.05 
 
-# dataset = "metadynamics"
-x0 = np.array([0,0])
-dt = 1e-4
 
-# metadynamics params here
-Nbumps = int(1e3) 
-Ndeposit = int(1e3)
-subsample = int(1e2)
-height = 5*np.ones(Nbumps)
-sig = 0.05 
+    # compute dataset 
 
-
-# compute dataset 
-
-if dataset == "gibbs": 
-    data = sampling.euler_maruyama_OLD(system.drift, system.target_beta,dt, x0,int(1e6), int(1e2))
-elif dataset == "metadynamics":
-    data = sampling.euler_maruyama_metadynamics_OLD(system.drift, system.target_beta,dt, x0, height, sig,Ndeposit, Nbumps, subsample)
-elif dataset == "uniform": 
-    data = sampling.fem_pts(system, 0.05, Vbdry)
-
+    if dataset == "gibbs": 
+        data = sampling.euler_maruyama_OLD(system.drift, system.target_beta,dt, x0,int(1e6), int(1e2))
+    elif dataset == "metadynamics":
+        data = sampling.euler_maruyama_metadynamics_OLD(system.drift, system.target_beta,dt, x0, height, sig,Ndeposit, Nbumps, subsample)
+    elif dataset == "uniform": 
+        data = sampling.fem_pts(system, 0.05, Vbdry)
+elif load_previous_params: 
+    data_dict = np.load(error_dict, allow_pickle=True).item()
+    data = data_dict['dataset']
+else:
+    print("No dataset generated or loaded!")
 # visualize dataset 
 
 # plt.scatter(data[:,0], data[:,1])
 
 
-# upload fem soltuon
+# upload fem solution
 system.load_fem()
 
 print("System has been set up!")
@@ -202,22 +211,16 @@ def error_data(t, \
             
             if weighting: 
                 weights = target_measure[err_boolz['error_bool']]
-                weights = weights/np.sum(weights)
+                weights = weights/np.mean(weights)
             else: 
-                weights = np.ones(q_tmd_error.shape)/q_tmd_error.shape[0]
-            
+                weights = np.ones(q_tmd_error.shape)
+            assert weights.shape[0] == q_tmd_error.shape[0], "weights and errors are not the same shape!"
             outputs.append(helpers.RMSerror(q_tmd_error, q_interpolant_fem_to_tmd_error, \
                                             weights=weights, checknans=False))
 
             if verbose:
                  print(outputs)
     return outputs  
-
-
-# # Playing with multiprocessing/data collection
-
-
-# set up sparsification modules 
 
 def deltanet(delta):
     δ_net, _ = helpers.epsilon_net(data.T, delta)
@@ -228,71 +231,80 @@ def uniformnet(scaling):
 
 
 # set up post-processed datasets 
+if __name__ == "__main__":
+    num = multiprocess.cpu_count()
+    # multiprocess.set_start_method('spawn')
+    data = data_dict['dataset']
+    beta = data_dict['beta']
+    epsilons = data_dict['args']['epsilons']
+    deltas = data_dict['args']['deltas']
+    vbdry = data_dict['args']['vbry']
+    n_neigh = data_dict['args']['n_neigh']
 
-num = multiprocess.cpu_count()
-deltas = list(np.linspace(1e-6, 1e-1, 10))
-# deltas = [0.02, 0.04]
-if dataset == "uniform":
-    print("Special processing for uniform data...")
-    deltas = list(np.linspace(0.02, 0.05, 10))
-    with multiprocess.Pool(num) as processing_pool:
-        datasets = processing_pool.map(uniformnet, deltas)
-else:
-    with multiprocess.Pool(num) as processing_pool:
-        datasets = processing_pool.map(deltanet, deltas)
-
-
-
-# set up all the other parameters of the system 
-# epsilons = [2**(-5), 2**(-6), 2**(-7)]
-epsilons = list(2.0**np.arange(-16, 2, 0.25))
-vbdry = [1.0] # twowell
-# vbdry = [10]
-n_neigh = [1024]
-args = list(itertools.product(*[epsilons, datasets, vbdry, n_neigh])) # create iterable for multiprocess
-params = {"epsilons": epsilons, "deltas": deltas, "vbry": vbdry, "n_neigh": n_neigh}
-
-print("parameters are ready! Beginning error analysis...")
+    datasets = []
+    if dataset == "uniform":
+        print("Special processing for uniform data...")
+        deltas = list(np.linspace(0.02, 0.05, 10))
+        # with multiprocess.Pool(num) as processing_pool:
+        #     datasets = processing_pool.map(uniformnet, deltas)
+        datasets = [uniformnet(delta) for delta in deltas]
+    else:
+        # with multiprocess.Pool(num) as processing_pool:
+        #     datasets = processing_pool.map(deltanet, deltas)
+        datasets = [deltanet(delta) for delta in deltas]
 
 
-# run error analysis: this order is VERY important! 
-count_points = True
-pw_error = True
-kernel_stats = True
-error_stats = True
+    # # set up all the other parameters of the system 
+    # epsilons = [2**(-5), 2**(-6), 2**(-7)]
+    # # epsilons = list(2.0**np.arange(-16, 2, 0.25))
+    # # vbdry = [1.0] # twowell
+    # # vbdry = [10]
+    # vbdry = [Vbdry]
+    # n_neigh = [1024]
+    args = list(itertools.product(*[epsilons, datasets, vbdry, n_neigh])) # create iterable for multiprocess
+    params = {"epsilons": epsilons, "deltas": deltas, "vbry": vbdry, "n_neigh": n_neigh}
 
-# stats for algorithm 
-verbose = True
-parallel = False
+    print("parameters are ready! Beginning error analysis...")
 
-def onepass(t): return error_data(t,pw_error,count_points,kernel_stats, verbose, error_stats)
 
-if parallel: 
-    with multiprocess.Pool(num) as pool:
-        result = pool.map(onepass, args)
-else:
-    result = []
-    for i in tqdm.tqdm(range(len(args))):
-        ans = onepass(args[i])
-        result.append(ans)
+    # run error analysis: this order is VERY important! 
+    count_points = True
+    pw_error = True
+    kernel_stats = True
+    error_stats = True
 
-# process data 
-stats = [count_points, pw_error, kernel_stats, error_stats]
-stat_names = np.array(["N_points", "PW_error", "singer_estimates", "error_tensor"], dtype=str)
-stat_names = stat_names[stats]
-sim_results = {}
-for names in stat_names:
-    sim_results[names] = []
-for j in range(len(result)):
-    for i in range (len(sim_results.items())):
-        sim_results[stat_names[i]].append(result[j][i])
-for name,_ in sim_results.items():
-    sim_results[name] = np.array(sim_results[name]).reshape(len(epsilons), len(deltas), len(vbdry), len(n_neigh))
+    # stats for algorithm 
+    verbose = True
+    parallel = False
 
-# write to file 
-stats = {"system": problem, "sampling": dataset, "dataset": data, "beta": system.target_beta, "args": params, "sim_results": sim_results}
-filename = savedir + "/" + problem + "_" + dataset + "_" + note + ".npy"
-np.save(filename, stats)
+    def onepass(t): return error_data(t,pw_error,count_points,kernel_stats, verbose, error_stats)
+
+    if parallel: 
+        with multiprocess.Pool(num) as pool:
+            result = pool.map(onepass, args)
+    else:
+        result = []
+        for i in tqdm.tqdm(range(len(args))):
+            ans = onepass(args[i])
+            result.append(ans)
+
+    # process data 
+    stats = [count_points, pw_error, kernel_stats, error_stats]
+    stat_names = np.array(["N_points", "PW_error", "singer_estimates", "error_tensor"], dtype=str)
+    stat_names = stat_names[stats]
+    sim_results = {}
+    for names in stat_names:
+        sim_results[names] = []
+    for j in range(len(result)):
+        for i in range (len(sim_results.items())):
+            sim_results[stat_names[i]].append(result[j][i])
+    for name,_ in sim_results.items():
+        sim_results[name] = np.array(sim_results[name]).reshape(len(epsilons), len(deltas), len(vbdry), len(n_neigh))
+
+    # write to file 
+    stats = {"system": problem, "sampling": dataset, "dataset": data, "beta": system.target_beta, "args": params, "sim_results": sim_results}
+    filename = savedir + "/" + problem + "_" + dataset + "_" + note + ".npy"
+    np.save(filename, stats)
 
 
 # to load data:
