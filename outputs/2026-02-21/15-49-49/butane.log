@@ -1,0 +1,14 @@
+[2026-02-21 15:49:49,728][__main__][INFO] - Computing pairwise distance matrix...
+[2026-02-21 15:49:52,402][__main__][INFO] - Distance matrix shape: (11570, 11570)
+[2026-02-21 15:49:53,230][__main__][INFO] - Saved distance matrix to /export/ssule25/TMDmaps/data/butane/dist_matrices/2026-02-21_15-49-52_1e4d4c2c/sqdists.npz
+[2026-02-21 15:49:53,231][__main__][INFO] - Saved config snapshot to /export/ssule25/TMDmaps/data/butane/dist_matrices/2026-02-21_15-49-52_1e4d4c2c/config.yaml
+[2026-02-21 15:49:53,231][__main__][INFO] - Starting trials...
+[2026-02-21 15:50:00,551][__main__][ERROR] - Exception at epsilon=9.999999999999999e-05: Singular matrix
+[2026-02-21 15:50:07,291][__main__][ERROR] - Exception at epsilon=0.00010974987654930556: Singular matrix
+[2026-02-21 15:50:13,912][__main__][ERROR] - Exception at epsilon=0.00012045035402587825: Singular matrix
+[2026-02-21 15:50:20,500][__main__][ERROR] - Exception at epsilon=0.00013219411484660285: Singular matrix
+[2026-02-21 15:50:27,147][__main__][ERROR] - Exception at epsilon=0.000145082877849594: Singular matrix
+[2026-02-21 15:50:33,776][__main__][ERROR] - Exception at epsilon=0.00015922827933410923: Singular matrix
+[2026-02-21 15:50:40,461][__main__][ERROR] - Exception at epsilon=0.00017475284000076832: Singular matrix
+[2026-02-21 15:50:47,087][__main__][ERROR] - Exception at epsilon=0.00019179102616724886: Singular matrix
+[2026-02-21 15:50:53,679][__main__][ERROR] - Exception at epsilon=0.00021049041445120195: Singular matrix
